@@ -1,0 +1,33 @@
+cmake_minimum_required(VERSION 3.30)
+
+project(chaoxi LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+# === 项目配置选项 ===
+option(CHAOXI_BUILD_EXAMPLES "Build chaoxi examples" ON)
+option(CHAOXI_BUILD_TESTS "Build chaoxi tests" ON)
+option(CHAOXI_BUILD_BENCHMARKS "Build chaoxi benchmarks" ON)
+
+# === 1. 核心库 ===
+add_subdirectory(chaoxi)
+
+# === 2. 示例 (Examples) ===
+if(CHAOXI_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+
+# === 3. 测试 (Tests) ===
+if(CHAOXI_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
+# === 4. 基准测试 (Benchmarks) ===
+if(CHAOXI_BUILD_BENCHMARKS)
+    add_subdirectory(benchmark)
+endif()
