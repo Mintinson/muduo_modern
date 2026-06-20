@@ -53,7 +53,7 @@ public:
 
     static void setLogLevel(LogLevel level);
 
-    using OutputFunc = std::function<void(std::span<const char>)>;
+    using OutputFunc = std::function<void(std::string_view)>;
     using FlushFunc = std::function<void()>;
     static void setOutput(OutputFunc);
     static void setFlush(FlushFunc);
@@ -99,10 +99,40 @@ private:
 #define LOG_SYSFATAL \
     chaoxi::Logger(chaoxi::Logger::LogLevel::FATAL, errno).stream()
 
-#define FLOG_TRACE(f, ...)    LOG_TRACE << std::format(f, __VA_ARGS__)
-#define FLOG_WARN(f, ...)     LOG_WARN << std::format(f, __VA_ARGS__)
-#define FLOG_ERROR(f, ...)    LOG_ERROR << std::format(f, __VA_ARGS__)
-#define FLOG_DEBUG(f, ...)    LOG_DEBUG << std::format(f, __VA_ARGS__)
-#define FLOG_INFO(f, ...)     LOG_INFO << std::format(f, __VA_ARGS__)
-#define FLOG_SYSERR(f, ...)   LOG_SYSERR << std::format(f, __VA_ARGS__)
-#define FLOG_SYSFATAL(f, ...) LOG_SYSFATAL << std::format(f, __VA_ARGS__)
+///
+/// FLOG_XX: 格式化日志宏 —— 直接 format_to_n 到栈缓冲区，零堆分配
+///
+/// 与 LOG_XX 的对比:
+///   LOG_INFO << val        → operator<< + to_chars 写 FixedBuffer（快）
+///   FLOG_INFO("{}", val)   → format_to_n 写 FixedBuffer（同样快！）
+///
+/// 优化原理:
+///   旧: LOG_INFO << std::format(f, args...)
+///       └→ std::format 先创建临时 std::string（堆分配），再 append
+///   新: Logger(INFO).stream().format(f, args...)
+///       └→ std::format_to_n 直接写入栈上 FixedBuffer（4KB），零分配
+///
+/// 注意: FLOG_XX 至少需要一个参数（format 字符串），后续参数可选。
+///       FLOG_INFO("plain")   → 等同于 LOG_INFO << "plain"
+///       FLOG_INFO("{}", val) → 格式化单个值
+///
+#define FLOG_TRACE(...)                                                    \
+    if (chaoxi::Logger::logLevel() <= chaoxi::Logger::LogLevel::TRACE)   \
+    chaoxi::Logger(chaoxi::Logger::LogLevel::TRACE).stream().format(__VA_ARGS__)
+#define FLOG_DEBUG(...)                                                    \
+    if (chaoxi::Logger::logLevel() <= chaoxi::Logger::LogLevel::DEBUG)   \
+    chaoxi::Logger(chaoxi::Logger::LogLevel::DEBUG).stream().format(__VA_ARGS__)
+#define FLOG_INFO(...)                                                     \
+    if (chaoxi::Logger::logLevel() <= chaoxi::Logger::LogLevel::INFO)    \
+    chaoxi::Logger(chaoxi::Logger::LogLevel::INFO).stream().format(__VA_ARGS__)
+// WARN/ERROR/FATAL 没 if 过滤，无条件执行
+#define FLOG_WARN(...) \
+    chaoxi::Logger(chaoxi::Logger::LogLevel::WARN).stream().format(__VA_ARGS__)
+#define FLOG_ERROR(...) \
+    chaoxi::Logger(chaoxi::Logger::LogLevel::ERROR).stream().format(__VA_ARGS__)
+#define FLOG_FATAL(...) \
+    chaoxi::Logger(chaoxi::Logger::LogLevel::FATAL).stream().format(__VA_ARGS__)
+#define FLOG_SYSERR(...) \
+    chaoxi::Logger(chaoxi::Logger::LogLevel::ERROR, errno).stream().format(__VA_ARGS__)
+#define FLOG_SYSFATAL(...) \
+    chaoxi::Logger(chaoxi::Logger::LogLevel::FATAL, errno).stream().format(__VA_ARGS__)

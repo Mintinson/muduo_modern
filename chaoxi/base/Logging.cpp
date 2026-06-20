@@ -1,11 +1,12 @@
 #include "chaoxi/base/Logging.hpp"
 #include "chaoxi/base/CurrentThread.hpp"
 
+#include <array>
 #include <chrono>
 
 namespace chaoxi {
 namespace {
-void defaultOutput(std::span<const char> msg) {
+void defaultOutput(std::string_view msg) {
     std::fwrite(msg.data(), 1, msg.size(), stdout);
 }
 
@@ -20,7 +21,8 @@ constexpr std::array<std::string_view,
                      static_cast<size_t>(Logger::LogLevel::NUM_LOG_LEVELS)>
     LogLevelName = {"TRACE ", "DEBUG ", "INFO  ", "WARN  ", "ERROR ", "FATAL "};
 
-thread_local char t_time[32];
+thread_local std::array<char, 32> t_time{};
+// thread_local char t_time[32];
 thread_local std::chrono::seconds t_lastSecond{};
 
 }  // namespace
@@ -39,7 +41,7 @@ Logger::Logger(LogLevel level, int savedErrno, const std::source_location loc)
 Logger::~Logger() {
     impl_.finish();
     const auto& buf = stream().buffer();
-    g_output(buf.span());  // 使用上一次重构的 span() 接口
+    g_output(buf.view());  // 使用上一次重构的 span() 接口
 
     if (impl_.level_ == LogLevel::FATAL) {
         g_flush();
@@ -74,17 +76,18 @@ void Logger::Impl::formatTime() {
         std::chrono::duration_cast<std::chrono::microseconds>(now - sys_secs).count();
 
     // 保留原版的按秒缓存机制，避免每条日志都完整格式化日期时间
+    
     if (sys_secs.time_since_epoch() != t_lastSecond) {
         t_lastSecond = sys_secs.time_since_epoch();
 
         // 3. 搭配 C++20 chrono formatting 和 std::format_to 写入缓存
         // 注意：C++20 std::chrono::zoned_time 可以完美处理时区，这里简化为本地时间
-        std::format_to_n(t_time, sizeof(t_time), "{:%Y%m%d %H:%M:%S}",
+        std::format_to_n(t_time.data(), t_time.size(), "{:%Y%m%d %H:%M:%S}",
                          std::chrono::current_zone()->to_local(now));
     }
 
     // 将缓存的秒级字符串和当前的微秒拼接写入 Stream
-    stream_ << std::string_view{t_time, 17} << std::format(".{:06d} ", us);
+    stream_ << std::string_view{t_time.data(), 17} << std::format(".{:06d} ", us);
 }
 
 }  // namespace chaoxi

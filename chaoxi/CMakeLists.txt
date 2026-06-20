@@ -8,6 +8,10 @@ add_library(chaoxi_base STATIC
     base/Logging.cpp
     base/LogStream.cpp
     base/CurrentThread.cpp
+    base/LogFile.cpp
+    base/FileUtil.cpp
+    base/ProcessInfo.cpp
+    base/AsyncLogging.cpp
 )
 add_library(chaoxi::base ALIAS chaoxi_base)
 
@@ -29,25 +33,25 @@ target_link_libraries(chaoxi_base PUBLIC Threads::Threads stdc++exp)
 # file(GLOB_RECURSE NET_SOURCES CONFIGURE_DEPENDS "net/*.cpp")
 # add_library(chaoxi_net STATIC ${NET_SOURCES})
 add_library(chaoxi_net STATIC 
-    net/InetAddress.cpp
-    net/SocketOps.cpp
+    net/Acceptor.cpp
     net/Buffer.cpp
-    net/Timer.cpp
     net/Channel.cpp
-    net/EventLoop.cpp
-    net/Poller.cpp
-    net/TimerQueue.cpp
-    net/poller/DefaultPoller.cpp
-    net/poller/PollPoller.cpp
-    net/poller/EPollPoller.cpp
+    net/Connector.cpp
     net/EventLoopThread.cpp
     net/EventLoopThreadPool.cpp
+    net/InetAddress.cpp
+    net/Poller.cpp
+    net/poller/PollPoller.cpp
+    net/poller/EPollPoller.cpp
+    net/poller/DefaultPoller.cpp
     net/Socket.cpp
-    net/Acceptor.cpp
+    net/SocketOps.cpp
     net/TcpConnection.cpp
-    net/Connector.cpp
     net/TcpServer.cpp
+    net/Timer.cpp
     net/TcpClient.cpp
+    net/EventLoop.cpp
+    net/TimerQueue.cpp
 
     # net/TimeQueue.cpp
 )

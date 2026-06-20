@@ -13,6 +13,12 @@ FetchContent_MakeAvailable(googletest)
 add_executable(LogStream_test base/LogStream_test.cpp)
 target_link_libraries(LogStream_test PRIVATE chaoxi::base GTest::gtest_main)
 
+add_executable(LogFile_test base/LogFile_test.cpp)
+target_link_libraries(LogFile_test PRIVATE chaoxi::base GTest::gtest_main)
+
+add_executable(AsyncLogging_test base/AsyncLogging_test.cpp)
+target_link_libraries(AsyncLogging_test PRIVATE chaoxi::base GTest::gtest_main)
+
 add_executable(InetAddress_test net/InetAddress_test.cpp)
 target_link_libraries(InetAddress_test PRIVATE chaoxi::net GTest::gtest_main)
 
@@ -37,6 +43,8 @@ target_link_libraries(EPollPoller_test PRIVATE chaoxi::net GTest::gtest_main)
 # Use CMake's built-in GoogleTest module to discover tests automatically
 include(GoogleTest)
 gtest_discover_tests(LogStream_test)
+# gtest_discover_tests(LogFile_test)
+gtest_discover_tests(AsyncLogging_test)
 gtest_discover_tests(InetAddress_test)
 gtest_discover_tests(Buffer_test)
 gtest_discover_tests(TcpConnection_test)

@@ -11,6 +11,13 @@ set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "Disable benchmark install" FORCE)
 FetchContent_MakeAvailable(googlebenchmark)
 
 add_executable(LogStream_bench base/LogStream_bench.cpp)
-
-# Link against base library and benchmark_main (which provides main() automatically)
 target_link_libraries(LogStream_bench PRIVATE chaoxi::base benchmark::benchmark_main)
+
+add_executable(Logging_bench base/Logging_bench.cpp)
+target_link_libraries(Logging_bench PRIVATE chaoxi::base benchmark::benchmark_main)
+
+add_executable(LogFile_bench base/LogFile_bench.cpp)
+target_link_libraries(LogFile_bench PRIVATE chaoxi::base benchmark::benchmark_main)
+
+add_executable(AsyncLogging_bench base/AsyncLogging_bench.cpp)
+target_link_libraries(AsyncLogging_bench PRIVATE chaoxi::base benchmark::benchmark_main)
