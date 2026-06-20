@@ -5,7 +5,6 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
-#include <print>
 #include <thread>
 
 std::unique_ptr<chaoxi::LogFile> g_logFile;

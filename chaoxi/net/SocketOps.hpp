@@ -5,7 +5,8 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
-namespace chaoxi::net::sockets {
+namespace chaoxi::net::sockets
+{
 
 ///
 /// Creates a non-blocking socket file descriptor,
