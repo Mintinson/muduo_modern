@@ -1,5 +1,11 @@
 {
     "cSpell.words": [
         "chaoxi"
-    ]
+    ],
+    "clangd.arguments": [
+        "--log=verbose",
+        "--background-index",
+        "--experimental-modules-support",
+        "--enable-config"
+    ],
 }
