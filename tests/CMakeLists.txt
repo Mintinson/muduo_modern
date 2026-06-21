@@ -22,6 +22,9 @@ target_link_libraries(AsyncLogging_test PRIVATE chaoxi::base GTest::gtest_main)
 add_executable(InetAddress_test net/InetAddress_test.cpp)
 target_link_libraries(InetAddress_test PRIVATE chaoxi::net GTest::gtest_main)
 
+add_executable(SocketOps_test net/SocketOps_test.cpp)
+target_link_libraries(SocketOps_test PRIVATE chaoxi::net GTest::gtest_main)
+
 add_executable(Buffer_test net/Buffer_test.cpp)
 target_link_libraries(Buffer_test PRIVATE chaoxi::net GTest::gtest_main)
 
@@ -45,6 +48,7 @@ include(GoogleTest)
 gtest_discover_tests(LogStream_test)
 # gtest_discover_tests(LogFile_test)
 gtest_discover_tests(AsyncLogging_test)
+gtest_discover_tests(SocketOps_test)
 gtest_discover_tests(InetAddress_test)
 gtest_discover_tests(Buffer_test)
 gtest_discover_tests(TcpConnection_test)
