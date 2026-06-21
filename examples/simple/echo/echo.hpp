@@ -2,19 +2,20 @@
 
 #include <chaoxi/net/TcpServer.hpp>
 
-class EchoServer {
+class EchoServer
+{
 public:
-  EchoServer(chaoxi::net::EventLoop *loop,
-             const chaoxi::net::InetAddress &listenAddr);
-  void start(); // calls server_.start();
+    EchoServer(chaoxi::net::EventLoop* loop,
+               const chaoxi::net::InetAddress& listenAddr);
+    void start();  // calls server_.start();
 
 private:
-  void onConnection(const chaoxi::net::TcpConnectionPtr &conn);
+    void onConnection(const chaoxi::net::TcpConnectionPtr& conn);
 
-    void onMessage(const chaoxi::net::TcpConnectionPtr& conn, 
-    chaoxi::net::Buffer* buf,
-                 chaoxi::Timestamp time)
-    );
+    void onMessage(const chaoxi::net::TcpConnectionPtr& conn,
+                   chaoxi::net::Buffer& buf,
+                   chaoxi::Timestamp time);
 
+    chaoxi::net::EventLoop* loop_;
     chaoxi::net::TcpServer server_;
 };
