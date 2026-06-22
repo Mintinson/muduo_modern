@@ -72,7 +72,8 @@
 
 struct epoll_event;
 
-namespace chaoxi::net {
+namespace chaoxi::net
+{
 
 ///
 /// @brief 基于 epoll(7) 的 I/O 多路复用实现
@@ -88,7 +89,8 @@ namespace chaoxi::net {
 /// 使用方式（通常由 EventLoop 内部自动选择）：
 ///   Poller::newDefaultPoller(loop) 返回 EPollPoller 或 PollPoller。
 ///
-class EPollPoller : public Poller {
+class EPollPoller : public Poller
+{
 public:
     explicit EPollPoller(EventLoop* loop);
     ~EPollPoller() override;
@@ -120,10 +122,10 @@ private:
     ///   - events_[i].events:   实际发生的事件（POLLIN/POLLOUT/...）
     ///   - events_[i].data.ptr: 我们注册时设置的 Channel* 指针
     ///
-    /// 通过 data.ptr 找回对应的 Channel，设置其 revents_，然后加入 activeChannels。
+    /// 通过 data.ptr 找回对应的 Channel，设置其 revents_，然后加入
+    /// activeChannels。
     ///
-    void fillActiveChannels(int numEvents,
-                            ChannelList* activeChannels) const;
+    void fillActiveChannels(int numEvents, ChannelList* activeChannels) const;
 
     /// @brief 执行 epoll_ctl 系统调用
     /// @param operation EPOLL_CTL_ADD / EPOLL_CTL_MOD / EPOLL_CTL_DEL

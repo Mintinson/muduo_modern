@@ -7,11 +7,14 @@
 // #define OLD
 
 #ifdef OLD
-#include <condition_variable>
-namespace chaoxi::net {
+    #include <condition_variable>
+
+namespace chaoxi::net
+{
 class EventLoop;
 
-class EventLoopThread {
+class EventLoopThread
+{
 public:
     using ThreadInitCallback = std::function<void(EventLoop*)>;
 
@@ -38,11 +41,13 @@ private:
 #else
     #include <future>
 
-namespace chaoxi::net {
+namespace chaoxi::net
+{
 
 class EventLoop;
 
-class EventLoopThread {
+class EventLoopThread
+{
 public:
     using ThreadInitCallback = std::function<void(EventLoop*)>;
 

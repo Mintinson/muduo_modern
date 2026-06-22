@@ -218,6 +218,4 @@ void TcpClient::removeConnection(const TcpConnectionPtr& conn)
     }
 }
 
-
-
 }  // namespace chaoxi::net

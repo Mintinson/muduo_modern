@@ -352,8 +352,9 @@ void EPollPoller::removeChannel(Channel* channel) noexcept
 void EPollPoller::update(int operation, Channel* channel) noexcept
 {
     struct epoll_event event{};
-    event.events = static_cast<uint32_t>(channel->events());  // 我们关注的事件类型
-    event.data.ptr = channel;          // 存入 Channel*，epoll_wait 时原样返回
+    event.events =
+        static_cast<uint32_t>(channel->events());  // 我们关注的事件类型
+    event.data.ptr = channel;  // 存入 Channel*，epoll_wait 时原样返回
 
     int fd = channel->fd();
 

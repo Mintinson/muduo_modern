@@ -54,7 +54,8 @@
 // struct tcp_info is in <netinet/tcp.h>
 struct tcp_info;
 
-namespace chaoxi::net {
+namespace chaoxi::net
+{
 class Channel;    // 前向声明：fd 的事件分发器
 class EventLoop;  // 前向声明：Reactor 事件循环
 class Socket;     // 前向声明：socket fd 的 RAII 封装
@@ -119,7 +120,8 @@ class Socket;     // 前向声明：socket fd 的 RAII 封装
 ///   - 如果 write 没有一次写完（EAGAIN），剩余数据存入 outputBuffer_
 ///   - 启用 channel 的写事件监听，当 socket 下次可写时自动继续发送
 ///
-class TcpConnection : public std::enable_shared_from_this<TcpConnection> {
+class TcpConnection : public std::enable_shared_from_this<TcpConnection>
+{
 public:
     ///
     /// @brief 构造函数 —— 包装一个已建立连接的 TCP socket
@@ -166,22 +168,26 @@ public:
     [[nodiscard]] std::string_view name() const noexcept { return name_; }
 
     /// 返回本地地址（本机的 IP:port）
-    [[nodiscard]] const InetAddress& localAddress() const noexcept {
+    [[nodiscard]] const InetAddress& localAddress() const noexcept
+    {
         return localAddr_;
     }
 
     /// 返回对端地址（客户端的 IP:port）
-    [[nodiscard]] const InetAddress& peerAddress() const noexcept {
+    [[nodiscard]] const InetAddress& peerAddress() const noexcept
+    {
         return peerAddr_;
     }
 
     /// 当前是否处于已连接状态
-    [[nodiscard]] bool connected() const noexcept {
+    [[nodiscard]] bool connected() const noexcept
+    {
         return state_ == StateE::kConnected;
     }
 
     /// 当前是否已断开
-    [[nodiscard]] bool disconnected() const noexcept {
+    [[nodiscard]] bool disconnected() const noexcept
+    {
         return state_ == StateE::kDisconnected;
     }
 
@@ -221,7 +227,8 @@ public:
     /// @brief 发送二进制 span 数据
     template <typename T>
         requires(!std::same_as<std::remove_cv_t<T>, char>)
-    void send(std::span<T> message) {
+    void send(std::span<T> message)
+    {
         return send(
             std::string_view{reinterpret_cast<const char*>(message.data()),
                              sizeof(T) * message.size()});
@@ -294,7 +301,8 @@ public:
     void setContext(const std::any& context) { context_ = context; }
 
     /// 获取只读的用户上下文
-    [[nodiscard]] const std::any& getContext() const noexcept {
+    [[nodiscard]] const std::any& getContext() const noexcept
+    {
         return context_;
     }
 
@@ -304,28 +312,33 @@ public:
     // ---- 回调设置 (Not Thread Safe, 须在 EventLoop 线程调用) ----
 
     /// 设置连接状态变化回调（连接建立/断开时调用）
-    void setConnectionCallback(ConnectionCallback cb) noexcept {
+    void setConnectionCallback(ConnectionCallback cb) noexcept
+    {
         connectionCallback_ = std::move(cb);
     }
 
     /// 设置消息到达回调（收到数据时调用）
-    void setMessageCallback(MessageCallback cb) noexcept {
+    void setMessageCallback(MessageCallback cb) noexcept
+    {
         messageCallback_ = std::move(cb);
     }
 
     /// 设置写入完成回调（outputBuffer_ 全部发送完毕时调用）
-    void setWriteCompleteCallback(WriteCompleteCallback& cb) {
+    void setWriteCompleteCallback(WriteCompleteCallback& cb)
+    {
         writeCompleteCallback_ = std::move(cb);
     }
 
     /// 设置关闭回调（连接关闭时调用，通常由 TcpServer 内部使用）
-    void setCloseCallback(CloseCallback cb) noexcept {
+    void setCloseCallback(CloseCallback cb) noexcept
+    {
         closeCallback_ = std::move(cb);
     }
 
     /// 设置高水位回调（outputBuffer_ 超过阈值时调用）
     void setHighWaterMarkCallback(HighWaterMarkCallback cb,
-                                  size_t highWaterMark) noexcept {
+                                  size_t highWaterMark) noexcept
+    {
         highWaterMarkCallback_ = std::move(cb);
         highWaterMark_ = highWaterMark;
     }
@@ -363,7 +376,8 @@ private:
     /// kDisconnecting — 正在断开中，防止重入
     /// kDisconnected  — 已断开，最终状态
     ///
-    enum class StateE : std::uint8_t {
+    enum class StateE : std::uint8_t
+    {
         kDisconnected,
         kConnecting,
         kConnected,
@@ -419,7 +433,8 @@ private:
     /// @brief sendInLoop 的模板版本
     template <typename T>
         requires(!std::same_as<std::remove_cv_t<T>, char>)
-    void sendInLoop(std::span<T> message) {
+    void sendInLoop(std::span<T> message)
+    {
         return sendInLoop(
             std::string_view{reinterpret_cast<const char*>(message.data()),
                              sizeof(T) * message.size()});

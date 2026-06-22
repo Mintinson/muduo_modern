@@ -7,8 +7,8 @@ add_executable(demo demo.cpp)
 add_executable(s00_test1 s00/s00_test1.cpp)
 target_link_libraries(s00_test1 PRIVATE chaoxi::chaoxi)
 
-add_executable(s04_acceptor_1 s04/acceptor_1.cpp)
-target_link_libraries(s04_acceptor_1 PRIVATE chaoxi::chaoxi)
+# add_executable(s04_acceptor_1 s04/acceptor_1.cpp)
+# target_link_libraries(s04_acceptor_1 PRIVATE chaoxi::chaoxi)
 
 add_executable(tcp_connection_demo s01_tcp_connection/tcp_connection_demo.cpp)
 target_link_libraries(tcp_connection_demo PRIVATE chaoxi::chaoxi)

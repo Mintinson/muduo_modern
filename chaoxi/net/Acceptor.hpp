@@ -8,8 +8,10 @@
 #include <functional>
 #include <utility>
 
-namespace chaoxi::net {
-class Acceptor {
+namespace chaoxi::net
+{
+class Acceptor
+{
 public:
     using SocketType = int;
     using NewConnectionCallback =
@@ -20,7 +22,8 @@ public:
     Acceptor(const Acceptor&) = delete;
     Acceptor& operator=(const Acceptor&) = delete;
 
-    void setNewConnectionCallback(NewConnectionCallback cb) {
+    void setNewConnectionCallback(NewConnectionCallback cb)
+    {
         newConnectionCallback_ = std::move(cb);
     }
 

@@ -1,8 +1,10 @@
 #include "chaoxi/base/AsyncLogging.hpp"
 #include "chaoxi/base/Logging.hpp"
 
-#include <benchmark/benchmark.h>
 #include <string>
+#include <string_view>
+
+#include <benchmark/benchmark.h>
 
 using namespace chaoxi;
 
@@ -19,7 +21,7 @@ void asyncOutput(std::string_view msg)
     }
 }
 
-void asyncFlush() {} // 异步日志不需要同步 flush
+void asyncFlush() {}  // 异步日志不需要同步 flush
 
 // ============================================================================
 // 测试夹具 (Fixture)：管理 AsyncLogging 的生命周期
@@ -33,7 +35,8 @@ public:
         if (state.thread_index() == 0)
         {
             // 滚动大小设为 1GB，避免压测期间频繁切文件
-            asyncLog_ = std::make_unique<AsyncLogging>("/tmp/async_logging_bench", 1024 * 1024 * 1024);
+            asyncLog_ = std::make_unique<AsyncLogging>(
+                "/tmp/async_logging_bench", 1024 * 1024 * 1024);
             asyncLog_->start();
             g_asyncLog = asyncLog_.get();
             Logger::setOutput(asyncOutput);
@@ -47,7 +50,7 @@ public:
         if (state.thread_index() == 0)
         {
             g_asyncLog = nullptr;
-            asyncLog_->stop(); // 等待后端将队列中的数据全部落盘
+            asyncLog_->stop();  // 等待后端将队列中的数据全部落盘
             asyncLog_.reset();
         }
     }
@@ -63,8 +66,9 @@ std::unique_ptr<AsyncLogging> AsyncLoggingFixture::asyncLog_ = nullptr;
 BENCHMARK_F(AsyncLoggingFixture, SingleThread)(benchmark::State& state)
 {
     // 构造一条长约 100 字节的消息
-    const char* msg = "This is a standard log message meant to simulate typical business logic output length. 1234567890";
-    
+    std::string_view msg = "This is a standard log message meant to simulate "
+                           "typical business logic output length. 1234567890";
+
     for (auto _ : state)
     {
         LOG_INFO << msg;
@@ -80,8 +84,10 @@ BENCHMARK_F(AsyncLoggingFixture, SingleThread)(benchmark::State& state)
 // ============================================================================
 BENCHMARK_F(AsyncLoggingFixture, MultiThread)(benchmark::State& state)
 {
-    const char* msg = "This is a standard log message meant to simulate typical business logic output length. 1234567890";
-    
+    std::string_view msg =
+        "This is a standard log message meant to simulate typical "
+        "business logic output length. 1234567890";
+
     for (auto _ : state)
     {
         LOG_INFO << msg;

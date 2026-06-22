@@ -7,7 +7,8 @@
 #include <set>
 #include <utility>
 
-namespace chaoxi::net {
+namespace chaoxi::net
+{
 
 class EventLoop;
 class Timer;
@@ -19,7 +20,8 @@ class TimerId;
 /// TimerQueue 会在构造的时候就创建 timerfd 和 对应的 Channel，
 /// 并将该Channel加入到 loop 中的 Poller
 ///
-class TimerQueue {
+class TimerQueue
+{
 public:
     explicit TimerQueue(EventLoop* loop);
     ~TimerQueue();
@@ -36,28 +38,37 @@ public:
 
 private:
     // 支持透明比较 (Heterogeneous Lookup) 的比较器
-    struct TimerCompare {
+    struct TimerCompare
+    {
         using is_transparent = void;  // C++14 开启透明比较的关键标志
 
         // 辅助结构：统一 unique_ptr 和 裸指针 的视图
-        struct Helper {
+        struct Helper
+        {
             Timestamp time;
             const Timer* ptr;
 
             Helper(const std::pair<Timestamp, std::unique_ptr<Timer>>& p)
                 : time(p.first)
-                , ptr(p.second.get()) {}
+                , ptr(p.second.get())
+            {
+            }
 
             Helper(const std::pair<Timestamp, Timer*>& p)
                 : time(p.first)
-                , ptr(p.second) {}
+                , ptr(p.second)
+            {
+            }
         };
 
-        bool operator()(const Helper& lhs, const Helper& rhs) const {
-            if (lhs.time < rhs.time) {
+        bool operator()(const Helper& lhs, const Helper& rhs) const
+        {
+            if (lhs.time < rhs.time)
+            {
                 return true;
             }
-            if (rhs.time < lhs.time) {
+            if (rhs.time < lhs.time)
+            {
                 return false;
             }
             return lhs.ptr < rhs.ptr;

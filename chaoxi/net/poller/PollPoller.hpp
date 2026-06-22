@@ -6,8 +6,10 @@
 
 struct pollfd;
 
-namespace chaoxi::net {
-class PollPoller : public Poller {
+namespace chaoxi::net
+{
+class PollPoller : public Poller
+{
 public:
     PollPoller(EventLoop* loop);
     ~PollPoller() override = default;

@@ -19,7 +19,9 @@ public:
     static constexpr std::size_t kCacheLineSize =
         std::hardware_destructive_interference_size;
 
-    explicit BoundedBlockingQueue(std::size_t maxSize) : buffer_(maxSize), maxSize_(maxSize)
+    explicit BoundedBlockingQueue(std::size_t maxSize)
+        : buffer_(maxSize)
+        , maxSize_(maxSize)
     {
         for (size_t i = 0; i < maxSize; ++i)
         {

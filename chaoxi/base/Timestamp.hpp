@@ -1,7 +1,8 @@
 #pragma once
 #include <chrono>
 
-namespace chaoxi {
+namespace chaoxi
+{
 
 using Timestamp = std::chrono::system_clock::time_point;
 
@@ -11,7 +12,8 @@ using Timestamp = std::chrono::system_clock::time_point;
 /// @return timestamp+seconds as Timestamp
 ///
 template <typename T>
-[[nodiscard]] Timestamp addTime(Timestamp timestamp, T seconds) noexcept {
+[[nodiscard]] Timestamp addTime(Timestamp timestamp, T seconds) noexcept
+{
     auto duration = std::chrono::duration<T>(seconds);
     return timestamp +
            std::chrono::duration_cast<std::chrono::system_clock::duration>(

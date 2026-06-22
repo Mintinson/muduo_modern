@@ -3,10 +3,12 @@
 #include <cstddef>
 struct tcp_info;
 
-namespace chaoxi::net {
+namespace chaoxi::net
+{
 class InetAddress;
 
-class Socket {
+class Socket
+{
 public:
     using SocketType = int;
 
@@ -18,7 +20,8 @@ public:
 
     // return true if success.
     [[nodiscard]] bool getTcpInfo(struct tcp_info*) const noexcept;
-    [[nodiscard]] bool getTcpInfoString(char* buf, std::size_t len) const noexcept;
+    [[nodiscard]] bool getTcpInfoString(char* buf,
+                                        std::size_t len) const noexcept;
 
     /// abort if address in use
     void bindAddress(const InetAddress& localaddr);

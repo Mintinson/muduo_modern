@@ -103,11 +103,11 @@ public:
     [[nodiscard]] const std::string& name() const noexcept { return name_; }
 
 private:
-    EventLoop* baseLoop_;  ///< acceptor 所在主 EventLoop
-    std::string name_;     ///< 线程池名称
-    bool started_{false};  ///< 是否已启动
-    unsigned numThreads_{0};    ///< io 线程数量
-    unsigned next_{0};          ///< round-robin 游标
+    EventLoop* baseLoop_;     ///< acceptor 所在主 EventLoop
+    std::string name_;        ///< 线程池名称
+    bool started_{false};     ///< 是否已启动
+    unsigned numThreads_{0};  ///< io 线程数量
+    unsigned next_{0};        ///< round-robin 游标
 
     /// io 线程对象数组（每个封装了一个 EventLoopThread + EventLoop）
     std::vector<std::unique_ptr<EventLoopThread>> threads_;

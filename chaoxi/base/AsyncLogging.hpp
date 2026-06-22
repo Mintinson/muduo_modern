@@ -61,7 +61,9 @@ class AsyncLogging
 {
 public:
     static constexpr std::size_t kDefaultBufferSize = 4 * 1024 * 1024;  // 4MB
-    AsyncLogging(std::string basename, std::size_t rollSize, int flushInterval = 3);
+    AsyncLogging(std::string basename,
+                 std::size_t rollSize,
+                 int flushInterval = 3);
     ~AsyncLogging();
 
     AsyncLogging(const AsyncLogging&) = delete;
@@ -98,7 +100,7 @@ private:
     ///    ⑤ 回收用完的空 buffer 到 newBuffer1/newBuffer2
     ///
     void threadFunc();
-    
+
     using Buffer = chaoxi::detail::FixedBuffer<chaoxi::detail::kLargeBuffer>;
     using BufferPtr = std::unique_ptr<Buffer>;
     using BufferVector = std::vector<BufferPtr>;

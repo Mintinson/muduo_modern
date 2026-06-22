@@ -1,14 +1,17 @@
 #pragma once
 
 #include "chaoxi/base/Timestamp.hpp"
+
 #include <functional>
 #include <memory>
 
-namespace chaoxi {
+namespace chaoxi
+{
 template <typename To, typename From>
     requires std::derived_from<To, From>
 [[nodiscard]] inline std::shared_ptr<To> down_pointer_cast(
-    const std::shared_ptr<From>& f) noexcept {
+    const std::shared_ptr<From>& f) noexcept
+{
 #ifndef NDEBUG
     // 在 Debug 模式下通过 dynamic_cast 确保实际类型真的是 To
     assert(f == nullptr || std::dynamic_pointer_cast<To>(f) != nullptr);
@@ -17,7 +20,8 @@ template <typename To, typename From>
     return std::static_pointer_cast<To>(f);
 }
 
-namespace net {
+namespace net
+{
 class Buffer;
 class TcpConnection;
 
@@ -29,7 +33,6 @@ using CloseCallback = std::function<void(const TcpConnectionPtr&)>;
 using WriteCompleteCallback = std::function<void(const TcpConnectionPtr&)>;
 using HighWaterMarkCallback =
     std::function<void(const TcpConnectionPtr&, std::size_t)>;
-
 
 using MessageCallback =
     std::function<void(const TcpConnectionPtr&, Buffer&, Timestamp)>;

@@ -7,8 +7,10 @@
 #include <cstdint>
 #include <utility>
 
-namespace chaoxi::net {
-class Timer {
+namespace chaoxi::net
+{
+class Timer
+{
 public:
     Timer(const Timer&) = delete;
     Timer& operator=(const Timer&) = delete;
@@ -24,10 +26,14 @@ public:
         ,
         // 3. std::atomic 配合 relaxed 内存序，榨干最后一点性能
         // TODO: benchmark 这一部分
-        sequence_(s_numCreated_.fetch_add(1, std::memory_order_relaxed) + 1) {}
+        sequence_(s_numCreated_.fetch_add(1, std::memory_order_relaxed) + 1)
+    {
+    }
 
-    void run() const {
-        if (callback_) {
+    void run() const
+    {
+        if (callback_)
+        {
             callback_();
         }
     }
@@ -40,7 +46,8 @@ public:
 
     void restart(Timestamp now) noexcept;
 
-    [[nodiscard]] static int64_t numCreated() noexcept {
+    [[nodiscard]] static int64_t numCreated() noexcept
+    {
         return s_numCreated_.load(std::memory_order_relaxed);
     }
 

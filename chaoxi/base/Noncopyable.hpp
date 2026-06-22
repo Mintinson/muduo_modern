@@ -1,16 +1,18 @@
 #ifndef MUDUO_BASE_NONCOPYABLE_HPP
 #define MUDUO_BASE_NONCOPYABLE_HPP
 
-namespace chaoxi {
-class NonCopyable {
+namespace chaoxi
+{
+class NonCopyable
+{
 public:
-  NonCopyable(const NonCopyable &) = delete;
-  void operator=(const NonCopyable &) = delete;
+    NonCopyable(const NonCopyable&) = delete;
+    void operator=(const NonCopyable&) = delete;
 
 protected:
-  NonCopyable() = default;
-  ~NonCopyable() = default;
+    NonCopyable() = default;
+    ~NonCopyable() = default;
 };
-} // namespace chaoxi
+}  // namespace chaoxi
 
-#endif // MUDUO_BASE_NONCOPYABLE_HPP
+#endif  // MUDUO_BASE_NONCOPYABLE_HPP

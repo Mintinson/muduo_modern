@@ -6,27 +6,34 @@
 
 #ifdef OLD
 
-namespace chaoxi::net {
+namespace chaoxi::net
+{
 
 EventLoopThread::EventLoopThread(const ThreadInitCallback& cb, std::string name)
     : callback_(std::move(cb))
-    , name_(std::move(name)) {}
+    , name_(std::move(name))
+{
+}
 
-EventLoopThread::~EventLoopThread() {
+EventLoopThread::~EventLoopThread()
+{
     exiting_ = true;
     // not 100% race-free, eg. threadFunc could be running callback_.
-    if (loop_ != nullptr) {
+    if (loop_ != nullptr)
+    {
         // still a tiny chance to call destructed object, if threadFunc exits
         // just now. but when EventLoopThread destructs, usually programming is
         // exiting anyway.
         loop_->quit();
-        if (thread_.joinable()) {
+        if (thread_.joinable())
+        {
             thread_.join();
         }
     }
 }
 
-EventLoop* EventLoopThread::startLoop() {
+EventLoop* EventLoopThread::startLoop()
+{
     //   assert(!thread_.started());
     //   thread_.start();
     thread_ = std::thread([this]() { threadFunc(); });
@@ -40,10 +47,12 @@ EventLoop* EventLoopThread::startLoop() {
     return loop;
 }
 
-void EventLoopThread::threadFunc() {
+void EventLoopThread::threadFunc()
+{
     EventLoop loop;
 
-    if (callback_) {
+    if (callback_)
+    {
         callback_(&loop);
     }
 
@@ -61,13 +70,17 @@ void EventLoopThread::threadFunc() {
 }  // namespace chaoxi::net
 
 #else
-namespace chaoxi::net {
+namespace chaoxi::net
+{
 
 EventLoopThread::EventLoopThread(ThreadInitCallback cb, std::string name)
     : callback_(std::move(cb))
-    , name_(std::move(name)) {}
+    , name_(std::move(name))
+{
+}
 
-EventLoopThread::~EventLoopThread() {
+EventLoopThread::~EventLoopThread()
+{
     EventLoop* loop = nullptr;
     {
         // 修复原版潜在的 Data Race: 析构时读取 loop_ 也必须加锁
@@ -75,7 +88,8 @@ EventLoopThread::~EventLoopThread() {
         loop = loop_;
     }
 
-    if (loop != nullptr) {
+    if (loop != nullptr)
+    {
         loop->quit();
         // 注意：这里不需要手动调用 thread_.join()。
         // C++20 的 std::jthread 会在自身析构时自动阻塞等待线程结束，
@@ -83,7 +97,8 @@ EventLoopThread::~EventLoopThread() {
     }
 }
 
-EventLoop* EventLoopThread::startLoop() {
+EventLoop* EventLoopThread::startLoop()
+{
     // 1. 使用 std::promise 替代条件变量，极其优雅的异步传值
     std::promise<EventLoop*> promise;
     auto future = promise.get_future();
@@ -95,10 +110,12 @@ EventLoop* EventLoopThread::startLoop() {
     return future.get();
 }
 
-void EventLoopThread::threadFunc(std::promise<EventLoop*>& promise) {
+void EventLoopThread::threadFunc(std::promise<EventLoop*>& promise)
+{
     EventLoop loop;  // 栈上分配的 EventLoop
 
-    if (callback_) {
+    if (callback_)
+    {
         callback_(&loop);
     }
 

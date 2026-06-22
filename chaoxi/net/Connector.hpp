@@ -113,7 +113,7 @@ public:
 
 private:
     /// 内部状态机（比 TcpConnection 简单）
-    enum class States: uint8_t
+    enum class States : uint8_t
     {
         kDisconnected,  // 未连接或已断开
         kConnecting,    // 正在连接（waiting for writable event）
