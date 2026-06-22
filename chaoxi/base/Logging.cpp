@@ -95,7 +95,10 @@ void Logger::Impl::finish()
     //         << get_basename(loc_.file_name()) << ':' << loc_.line() << '\n';
     // stream_ << " - " << get_basename(loc_.file_name()) << ':' << loc_.line()
     //         << '\n';
-    stream_ << " - " << " " << loc_.basename << ':' << loc_.line << '\n';
+
+    stream_ << " - " << loc_.function_name << " " << loc_.basename << ':'
+            << loc_.line << '\n';
+    // stream_ << " - " << " " << loc_.basename << ':' << loc_.line << '\n';
 }
 
 //  Logger::Impl::Impl(LogLevel level, int savedErrno, const std::source_location
@@ -105,7 +108,7 @@ constexpr Logger::Impl::Impl(LogLevel level, int savedErrno, LogLocation sl)
     , loc_(sl)
 {
     formatTime();
-    stream_ << CurrentThread::tidString() << ' ';
+    stream_ << CurrentThread::tidString();
     stream_ << LogLevelName[static_cast<size_t>(level)];
 
     if (savedErrno != 0)
