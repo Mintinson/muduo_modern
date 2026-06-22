@@ -13,6 +13,7 @@
 ///
 
 #include <chrono>
+#include <cstddef>
 #include <mutex>
 #include <string>
 
@@ -29,7 +30,7 @@ public:
     /// @param flushInterval flush 间隔秒数（默认 3）
     /// @param checkEveryN   每 N 条日志检查一次滚动/flush（默认 1024）
     LogFile(std::string basename,
-            off_t rollSize,
+            std::size_t rollSize,
             bool threadSafe = true,
             int flushInterval = 3,
             int checkEveryN = 1024);
@@ -56,7 +57,7 @@ private:
                                       std::chrono::system_clock::time_point& now);
 
     const std::string basename_;
-    const off_t rollSize_;
+    const std::size_t rollSize_;
     const int flushInterval_;
     const int checkEveryN_;
 

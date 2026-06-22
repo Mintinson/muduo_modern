@@ -81,7 +81,7 @@ public:
 
     /// @brief 设置 io 线程数量（必须在 start() 前调用）
     /// @param numThreads 0=单线程, 1=独立 io 线程, N=N个 io 线程
-    void setThreadNum(int numThreads) { numThreads_ = numThreads; }
+    void setThreadNum(unsigned numThreads) { numThreads_ = numThreads; }
 
     /// @brief 启动线程池：创建所有 io 线程并让它们开始各自的事件循环
     /// @param cb 每个 io 线程启动后的初始化回调（可选，用于设置线程局部数据）
@@ -106,8 +106,8 @@ private:
     EventLoop* baseLoop_;  ///< acceptor 所在主 EventLoop
     std::string name_;     ///< 线程池名称
     bool started_{false};  ///< 是否已启动
-    int numThreads_{0};    ///< io 线程数量
-    int next_{0};          ///< round-robin 游标
+    unsigned numThreads_{0};    ///< io 线程数量
+    unsigned next_{0};          ///< round-robin 游标
 
     /// io 线程对象数组（每个封装了一个 EventLoopThread + EventLoop）
     std::vector<std::unique_ptr<EventLoopThread>> threads_;

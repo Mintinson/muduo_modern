@@ -49,8 +49,7 @@ public:
         queue_type queue;
         {
             std::scoped_lock lock(mutex_);
-            queue = std::move(queue_);
-            assert(queue_.empty());
+            queue.swap(queue_);
         }
         return queue;
     }

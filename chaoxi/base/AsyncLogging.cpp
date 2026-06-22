@@ -6,6 +6,7 @@
 #include "chaoxi/base/Timestamp.hpp"
 
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <string_view>
@@ -16,7 +17,7 @@ namespace chaoxi
 {
 
 AsyncLogging::AsyncLogging(std::string basename,
-                           off_t rollSize,
+                           std::size_t rollSize,
                            int flushInterval)
     : flushInterval_(flushInterval)
     , basename_(std::move(basename))

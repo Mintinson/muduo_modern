@@ -11,10 +11,10 @@ namespace chaoxi::file_util
 class AppendFile
 {
     constexpr static std::size_t kBufferSize =
-        static_cast<const std::size_t>(64 * 1024);
+        static_cast<std::size_t>(64 * 1024);
 
 public:
-    explicit AppendFile(const std::string& filename);
+    explicit AppendFile(std::string_view filename);
 
     ~AppendFile();
 

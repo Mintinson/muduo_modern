@@ -3,6 +3,7 @@
 #include "chaoxi/net/InetAddress.hpp"
 #include "chaoxi/net/SocketOps.hpp"
 
+#include <cstddef>
 #include <cstdio>
 #include <netinet/tcp.h>  // for TCP_INFO, TCP_NODELAY, struct tcp_info
 
@@ -62,7 +63,7 @@ bool Socket::getTcpInfo(tcp_info* tcpi) const noexcept {
     return ::getsockopt(sockfd_, SOL_TCP, TCP_INFO, tcpi, &len) == 0;
 }
 
-bool Socket::getTcpInfoString(char* buf, int len) const noexcept {
+bool Socket::getTcpInfoString(char* buf, std::size_t len) const noexcept {
     tcp_info tcpi{};
     bool ok = getTcpInfo(&tcpi);
     if (ok) {

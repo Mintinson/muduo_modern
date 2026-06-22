@@ -127,8 +127,9 @@ void TimerQueue::cancelInLoop(TimerId timerId)
         // C++14 透明比较发威：直接用 pair<Timestamp, Timer*> 去
         // set<unique_ptr> 中 erase！
         std::pair<Timestamp, Timer*> key(it->first->expiration(), it->first);
-        size_t n = timers_.erase(key);
-        assert(n == 1);
+        // size_t n = timers_.erase(key);
+        // assert(n == 1);
+        timers_.erase(key);
 
         activeTimers_.erase(it);
         // 原版的 delete it->first; 被彻底干掉！unique_ptr 会自动析构它。

@@ -22,7 +22,7 @@ Acceptor::Acceptor(EventLoop* loop,const InetAddress& listenAddr, bool reuseport
     acceptSocket_.setReuseAddr(true);
     acceptSocket_.setReusePort(reuseport);
     acceptSocket_.bindAddress(listenAddr);
-    acceptChannel_.setReadCallback([this](Timestamp t) { handleRead(); });
+    acceptChannel_.setReadCallback([this](Timestamp) { handleRead(); });
 }
 
 Acceptor::~Acceptor() {

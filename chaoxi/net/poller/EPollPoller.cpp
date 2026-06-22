@@ -12,12 +12,15 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 
 #include <sys/epoll.h>
 #include <unistd.h>
 
-namespace chaoxi::net {
-namespace {
+namespace chaoxi::net
+{
+namespace
+{
 
 ///
 /// Channel::index 的三个状态常量：
@@ -28,7 +31,8 @@ namespace {
 ///   kAdded (1):  已通过 epoll_ctl(EPOLL_CTL_ADD) 注册到内核 epoll 实例。
 ///                channels_ map 中存在。
 ///
-///   kDeleted (2): 已通过 epoll_ctl(EPOLL_CTL_DEL) 从内核删除（调用了 disableAll），
+///   kDeleted (2): 已通过 epoll_ctl(EPOLL_CTL_DEL) 从内核删除（调用了
+///   disableAll），
 ///                 但 channels_ map 中仍然存在。下次 enableReading 时可以直接
 ///                 用 EPOLL_CTL_ADD 重新注册，无需重建 map 条目。
 ///
@@ -41,11 +45,16 @@ constexpr int kAdded = 1;
 constexpr int kDeleted = 2;
 
 /// @brief 将 epoll_ctl 的 operation 枚举值转为可读字符串
-[[nodiscard]] std::string_view operationToString(int op) noexcept {
-    switch (op) {
-        case EPOLL_CTL_ADD: return "ADD";
-        case EPOLL_CTL_DEL: return "DEL";
-        case EPOLL_CTL_MOD: return "MOD";
+[[nodiscard]] std::string_view operationToString(int op) noexcept
+{
+    switch (op)
+    {
+        case EPOLL_CTL_ADD:
+            return "ADD";
+        case EPOLL_CTL_DEL:
+            return "DEL";
+        case EPOLL_CTL_MOD:
+            return "MOD";
         default:
             assert(false && "ERROR op");
             return "Unknown Operation";
@@ -70,7 +79,8 @@ EPollPoller::EPollPoller(EventLoop* loop)
     , epollfd_(::epoll_create1(EPOLL_CLOEXEC))
     , events_(kInitEventListSize)  // 预分配 16 个 epoll_event 空间
 {
-    if (epollfd_ < 0) {
+    if (epollfd_ < 0)
+    {
         LOG_SYSFATAL << "EPollPoller::EPollPoller";
     }
 }
@@ -78,7 +88,8 @@ EPollPoller::EPollPoller(EventLoop* loop)
 ///
 /// @brief 析构 —— 关闭 epoll 实例 fd
 ///
-EPollPoller::~EPollPoller() {
+EPollPoller::~EPollPoller()
+{
     ::close(epollfd_);
 }
 
@@ -104,7 +115,8 @@ EPollPoller::~EPollPoller() {
 /// @param activeChannels [out] 存放就绪 Channel 的列表
 /// @return poll 返回的时刻（Timestamp）
 ///
-Timestamp EPollPoller::poll(int timeoutMs, ChannelList* activeChannels) {
+Timestamp EPollPoller::poll(int timeoutMs, ChannelList* activeChannels)
+{
     FLOG_TRACE("fd total count {}", channels_.size());
 
     // epoll_wait: 阻塞等待事件
@@ -118,21 +130,28 @@ Timestamp EPollPoller::poll(int timeoutMs, ChannelList* activeChannels) {
     int saveError = errno;
     Timestamp now = Timestamp::clock::now();  // 记录返回时刻
 
-    if (numEvents > 0) {
+    if (numEvents > 0)
+    {
         FLOG_TRACE("{} events happened", numEvents);
         // 将 events_ 中的就绪事件转换为 activeChannels
         fillActiveChannels(numEvents, activeChannels);
 
         // 动态扩容：如果本次返回了 capacity 个事件，下次可能更多
-        if (static_cast<std::size_t>(numEvents) == events_.size()) {
+        if (static_cast<std::size_t>(numEvents) == events_.size())
+        {
             events_.resize(events_.size() * 2);
         }
-    } else if (numEvents == 0) {
+    }
+    else if (numEvents == 0)
+    {
         LOG_TRACE << "nothing happened";
-    } else {
+    }
+    else
+    {
         // numEvents < 0: 出错
         // EINTR 是正常的（被信号中断），不需要记录
-        if (saveError != EINTR) {
+        if (saveError != EINTR)
+        {
             errno = saveError;
             LOG_SYSERR << "EPollPoller::poll()";
         }
@@ -148,22 +167,25 @@ Timestamp EPollPoller::poll(int timeoutMs, ChannelList* activeChannels) {
 /// @brief 遍历 epoll_wait 返回的事件，填充 activeChannels
 ///
 /// epoll 的精妙设计：
-///   注册 Channel 时（epoll_ctl ADD），我们把 Channel* 存入 epoll_event.data.ptr。
-///   当事件发生时，epoll_wait 在 events_[i].data.ptr 中返回同一个指针。
-///   这实现了**零查找开销**——直接从就绪事件跳转到 Channel 对象。
+///   注册 Channel 时（epoll_ctl ADD），我们把 Channel* 存入
+///   epoll_event.data.ptr。 当事件发生时，epoll_wait 在 events_[i].data.ptr
+///   中返回同一个指针。 这实现了**零查找开销**——直接从就绪事件跳转到 Channel
+///   对象。
 ///
 ///   对比 poll：
-///     poll 返回 pollfd 数组，你需要根据 fd 编号去查找对应的 Channel（O(log N)）。
-///     epoll 直接把 Channel* 还给你（O(1)）。
+///     poll 返回 pollfd 数组，你需要根据 fd 编号去查找对应的 Channel（O(log
+///     N)）。 epoll 直接把 Channel* 还给你（O(1)）。
 ///
 /// @param numEvents      就绪事件数量
 /// @param activeChannels [out] 存放活跃 Channel 的列表
 ///
 void EPollPoller::fillActiveChannels(int numEvents,
-                                     ChannelList* activeChannels) const {
+                                     ChannelList* activeChannels) const
+{
     assert(static_cast<size_t>(numEvents) <= events_.size());
 
-    for (int i = 0; i < numEvents; ++i) {
+    for (std::size_t i = 0; i < static_cast<size_t>(numEvents); ++i)
+    {
         // data.ptr 就是我们注册时存入的 Channel* 指针
         auto* channel = static_cast<Channel*>(events_[i].data.ptr);
 
@@ -209,29 +231,37 @@ void EPollPoller::fillActiveChannels(int numEvents,
 ///     PollPoller::updateChannel 用"负值 fd"标记忽略的 pollfd。
 ///     EPollPoller 用 epoll_ctl(DEL) 直接从内核删除，更彻底、更高效。
 ///
-void EPollPoller::updateChannel(Channel* channel) noexcept {
+void EPollPoller::updateChannel(Channel* channel) noexcept
+{
     Poller::assertInLoopThread();
     const int index = channel->index();
     LOG_TRACE << "fd = " << channel->fd() << " events = " << channel->events()
               << " index = " << index;
 
-    if (index == kNew || index == kDeleted) {
+    if (index == kNew || index == kDeleted)
+    {
         // ── 情况 A: 首次注册 / 重新注册 ──
         int fd = channel->fd();
 
-        if (index == kNew) {
+        if (index == kNew)
+        {
             // kNew: 全新的 Channel，需要先加入 channels_ map
             assert(channels_.find(fd) == channels_.end());
             channels_[fd] = channel;
-        } else {  // index == kDeleted
+        }
+        else
+        {  // index == kDeleted
             // kDeleted: 之前被删除，但仍在 channels_ map 中
             assert(channels_.find(fd) != channels_.end());
             assert(channels_[fd] == channel);
         }
 
         channel->set_index(kAdded);
-        update(EPOLL_CTL_ADD, channel);  // → epoll_ctl(epollfd_, ADD, fd, &event)
-    } else {
+        update(EPOLL_CTL_ADD,
+               channel);  // → epoll_ctl(epollfd_, ADD, fd, &event)
+    }
+    else
+    {
         // ── 情况 B: 已注册，更新或删除 ──
         int fd = channel->fd();
         (void)fd;
@@ -239,13 +269,18 @@ void EPollPoller::updateChannel(Channel* channel) noexcept {
         assert(channels_[fd] == channel);
         assert(index == kAdded);
 
-        if (channel->isNoneEvent()) {
+        if (channel->isNoneEvent())
+        {
             // 用户不关心任何事件了 → 从 epoll 内核表中删除
-            update(EPOLL_CTL_DEL, channel);  // → epoll_ctl(epollfd_, DEL, fd, NULL)
-            channel->set_index(kDeleted);    // 标记为"map中存在，但内核中已删除"
-        } else {
+            update(EPOLL_CTL_DEL,
+                   channel);  // → epoll_ctl(epollfd_, DEL, fd, NULL)
+            channel->set_index(kDeleted);  // 标记为"map中存在，但内核中已删除"
+        }
+        else
+        {
             // 修改关注的事件类型（例如从只读变为读写）
-            update(EPOLL_CTL_MOD, channel);  // → epoll_ctl(epollfd_, MOD, fd, &event)
+            update(EPOLL_CTL_MOD,
+                   channel);  // → epoll_ctl(epollfd_, MOD, fd, &event)
         }
     }
 }
@@ -265,7 +300,8 @@ void EPollPoller::updateChannel(Channel* channel) noexcept {
 ///   2. 从 channels_ map 中删除
 ///   3. index → kNew（回到初始状态）
 ///
-void EPollPoller::removeChannel(Channel* channel) noexcept {
+void EPollPoller::removeChannel(Channel* channel) noexcept
+{
     Poller::assertInLoopThread();
     int fd = channel->fd();
     FLOG_TRACE("fd={}", fd);
@@ -285,7 +321,8 @@ void EPollPoller::removeChannel(Channel* channel) noexcept {
     (void)n;
     assert(n == 1);
 
-    if (index == kAdded) {
+    if (index == kAdded)
+    {
         // 还在内核注册表中 → 需要显式删除
         update(EPOLL_CTL_DEL, channel);
     }
@@ -312,23 +349,30 @@ void EPollPoller::removeChannel(Channel* channel) noexcept {
 ///   - EPOLL_CTL_DEL 失败 → 只记录错误（不 fatal），因为 fd 可能已被内核自动移除
 ///   - EPOLL_CTL_ADD/MOD 失败 → fatal，因为这是不应该发生的编程错误
 ///
-void EPollPoller::update(int operation, Channel* channel) noexcept {
+void EPollPoller::update(int operation, Channel* channel) noexcept
+{
     struct epoll_event event{};
-    event.events = channel->events();  // 我们关注的事件类型
-    event.data.ptr = channel;           // 存入 Channel*，epoll_wait 时原样返回
+    event.events = static_cast<uint32_t>(channel->events());  // 我们关注的事件类型
+    event.data.ptr = channel;          // 存入 Channel*，epoll_wait 时原样返回
 
     int fd = channel->fd();
 
     FLOG_TRACE("epoll_ctl op={} fd={} event={}", operationToString(operation),
                fd, channel->eventsToString());
 
-    if (::epoll_ctl(epollfd_, operation, fd, &event) < 0) {
-        if (operation == EPOLL_CTL_DEL) {
+    if (::epoll_ctl(epollfd_, operation, fd, &event) < 0)
+    {
+        if (operation == EPOLL_CTL_DEL)
+        {
             // DEL 失败可以容忍：内核可能在 fd close 时自动清理
-            FLOG_SYSERR("epoll_ctl op={} fd={}", operationToString(operation), fd);
-        } else {
+            FLOG_SYSERR("epoll_ctl op={} fd={}", operationToString(operation),
+                        fd);
+        }
+        else
+        {
             // ADD/MOD 失败是严重错误，直接 abort
-            FLOG_SYSFATAL("epoll_ctl op={} fd={}", operationToString(operation), fd);
+            FLOG_SYSFATAL("epoll_ctl op={} fd={}", operationToString(operation),
+                          fd);
         }
     }
 }

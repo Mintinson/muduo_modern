@@ -68,7 +68,7 @@ void EventLoopThreadPool::start(const ThreadInitCallback& cb)
     // 创建 N 个 io 线程
     threads_.reserve(numThreads_);
     loops_.reserve(numThreads_);
-    for (int i = 0; i < numThreads_; ++i)
+    for (unsigned i = 0; i < numThreads_; ++i)
     {
         // EventLoopThread 构造时接收一个回调和一个名称
         // 线程名形如 "serverName0", "serverName1", ...

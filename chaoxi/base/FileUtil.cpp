@@ -4,11 +4,12 @@
 #include <cstdio>
 #include <print>
 #include <string>
+#include <string_view>
 
 namespace chaoxi::file_util
 {
-AppendFile::AppendFile(const std::string& filename)
-    : fp_(::fopen(filename.c_str(), "ae"))  // 'e' for O_CLOEXEC
+AppendFile::AppendFile(std::string_view filename)
+    : fp_(::fopen(filename.data(), "ae"))  // 'e' for O_CLOEXEC
 {
     assert(fp_);
     ::setbuffer(fp_, buffer_.data(), sizeof buffer_);

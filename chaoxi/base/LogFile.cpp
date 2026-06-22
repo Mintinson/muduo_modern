@@ -10,13 +10,14 @@
 
 #include <cassert>
 #include <chrono>
+#include <cstddef>
 #include <utility>
 
 namespace chaoxi
 {
 
 LogFile::LogFile(std::string basename,
-                 off_t rollSize,
+                 std::size_t rollSize,
                  bool threadSafe,
                  int flushInterval,
                  int checkEveryN)

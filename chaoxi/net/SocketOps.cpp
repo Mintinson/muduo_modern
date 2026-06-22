@@ -86,7 +86,7 @@ const struct sockaddr_in6* sockaddr_in6_cast(const struct sockaddr* addr)
 ///
 int createNonblockingOrDie(sa_family_t family)
 {
-#if VALGRIND
+#ifdef VALGRIND
     int sockfd = ::socket(family, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd < 0)
     {
@@ -168,7 +168,7 @@ void toIpPort(char* buf, size_t size, const struct sockaddr* addr)
         const struct sockaddr_in6* addr6 = sockaddr_in6_cast(addr);
         uint16_t port = sockets::ntoh16(addr6->sin6_port);
         assert(size > end);
-        std::format_to_n(buf + end, size - end, "]:{}", port);
+        std::format_to_n(buf + end, static_cast<int>(size - end), "]:{}", port);
         return;
     }
     toIp(buf, size, addr);
@@ -176,7 +176,7 @@ void toIpPort(char* buf, size_t size, const struct sockaddr* addr)
     const struct sockaddr_in* addr4 = sockaddr_in_cast(addr);
     uint16_t port = sockets::ntoh16(addr4->sin_port);
     assert(size > end);
-    std::format_to_n(buf + end, size - end, ":{}", port);
+    std::format_to_n(buf + end, static_cast<int>(size - end), ":{}", port);
 }
 
 /// @brief 从 sockaddr 提取 IP 地址字符串（缓冲区版本）
@@ -249,7 +249,7 @@ void bindOrDie(int sockfd, const struct sockaddr* addr)
 int accept(int sockfd, struct sockaddr_in6* addr)
 {
     socklen_t addrlen = static_cast<socklen_t>(sizeof *addr);
-#if VALGRIND || defined(NO_ACCEPT4)
+#if defined (VALGRIND) || defined(NO_ACCEPT4)
     int connfd = ::accept(sockfd, sockaddr_cast(addr), &addrlen);
     setNonBlockAndCloseOnExec(connfd);
 #else

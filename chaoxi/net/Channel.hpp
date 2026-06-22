@@ -53,9 +53,9 @@ public:
     /// prevent the owner object being destroyed in handleEvent.
     void tie(const std::shared_ptr<void>&) noexcept;
 
-    int fd() const noexcept { return fd_; }
+    [[nodiscard]] int fd() const noexcept { return fd_; }
 
-    int events() const noexcept { return events_; }
+    [[nodiscard]] int events() const noexcept { return events_; }
 
     void set_revents(int revt) noexcept { revents_ = revt; }  // used by pollers
 

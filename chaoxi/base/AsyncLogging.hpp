@@ -45,6 +45,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstddef>
 #include <latch>
 #include <memory>
 #include <mutex>
@@ -60,7 +61,7 @@ class AsyncLogging
 {
 public:
     static constexpr std::size_t kDefaultBufferSize = 4 * 1024 * 1024;  // 4MB
-    AsyncLogging(std::string basename, off_t rollSize, int flushInterval = 3);
+    AsyncLogging(std::string basename, std::size_t rollSize, int flushInterval = 3);
     ~AsyncLogging();
 
     AsyncLogging(const AsyncLogging&) = delete;
@@ -105,7 +106,7 @@ private:
     const int flushInterval_;
     std::atomic<bool> running_{false};
     const std::string basename_;
-    const off_t rollSize_;
+    const std::size_t rollSize_;
 
     std::jthread thread_;
     std::latch latch_{1};

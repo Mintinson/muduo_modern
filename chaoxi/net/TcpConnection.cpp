@@ -14,6 +14,7 @@
 #include "chaoxi/net/SocketOps.hpp"
 
 #include <cerrno>
+#include <cstddef>
 #include <cstring>
 #include <format>
 #include <memory>
@@ -22,7 +23,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-namespace chaoxi::net {
+namespace chaoxi::net
+{
 
 // ============================================================================
 // 默认回调（占位）
@@ -34,7 +36,8 @@ namespace chaoxi::net {
 /// 如果用户没有设置 ConnectionCallback，就会调用这个默认版本。
 /// 输出格式: "127.0.0.1:9981 -> 192.168.1.100:54321 is UP/DOWN"
 ///
-void defaultConnectionCallback(const TcpConnectionPtr& conn) {
+void defaultConnectionCallback(const TcpConnectionPtr& conn)
+{
     LOG_INFO << std::format("{} -> {} is {}", conn->localAddress().toIpPort(),
                             conn->peerAddress().toIpPort(),
                             (conn->connected() ? "UP" : "DOWN"));
@@ -46,7 +49,8 @@ void defaultConnectionCallback(const TcpConnectionPtr& conn) {
 /// 如果用户没有设置 MessageCallback，数据会被静默丢弃。
 /// 防止在不关心消息的测试程序中缓冲区无限增长。
 ///
-void defaultMessageCallback(const TcpConnectionPtr&, Buffer& buf, Timestamp) {
+void defaultMessageCallback(const TcpConnectionPtr&, Buffer& buf, Timestamp)
+{
     buf.retrieveAll();  // 丢弃所有可读数据
 }
 
@@ -98,7 +102,8 @@ TcpConnection::TcpConnection(EventLoop* loop,
     , socket_(std::make_unique<Socket>(sockfd))          // ① 接管 fd
     , channel_(std::make_unique<Channel>(loop, sockfd))  // ② 创建 Channel
     , localAddr_(localAddr)
-    , peerAddr_(peerAddr) {
+    , peerAddr_(peerAddr)
+{
     // ③ 设置 Channel 的四个回调
     channel_->setReadCallback([this](Timestamp t) { handleRead(t); });
     channel_->setWriteCallback([this] { handleWrite(); });
@@ -118,7 +123,8 @@ TcpConnection::TcpConnection(EventLoop* loop,
 ///   Channel 析构时会触发 assert(!addedToLoop_)。
 ///   因此必须在析构前调用 connectDestroyed()，它会执行 channel_->remove()。
 ///
-TcpConnection::~TcpConnection() {
+TcpConnection::~TcpConnection()
+{
     LOG_DEBUG << std::format("TcpConnection::dtor[{}] at {} fd={} state={}",
                              name_, (void*)this, channel_->fd(),
                              stateToString());
@@ -129,11 +135,13 @@ TcpConnection::~TcpConnection() {
 // TCP 信息查询
 // ============================================================================
 
-bool TcpConnection::getTcpInfo(struct tcp_info* tcpi) const noexcept {
+bool TcpConnection::getTcpInfo(struct tcp_info* tcpi) const noexcept
+{
     return socket_->getTcpInfo(tcpi);
 }
 
-std::string TcpConnection::getTcpInfoString() const noexcept {
+std::string TcpConnection::getTcpInfoString() const noexcept
+{
     char buf[1024];
     buf[0] = '\0';
     (void)socket_->getTcpInfoString(buf, sizeof buf);
@@ -161,7 +169,8 @@ std::string TcpConnection::getTcpInfoString() const noexcept {
 ///
 /// @param receiveTime poll 返回的时刻，传递给用户回调用于时间戳
 ///
-void TcpConnection::handleRead(Timestamp receiveTime) noexcept {
+void TcpConnection::handleRead(Timestamp receiveTime) noexcept
+{
     // 断言必须在 EventLoop 线程中执行
     loop_->assertInLoopThread();
     int savedErrno = 0;
@@ -174,22 +183,28 @@ void TcpConnection::handleRead(Timestamp receiveTime) noexcept {
     //   - 这样避免了数据量大时的 Buffer 扩容开销
     auto n = inputBuffer_.readFd(channel_->fd(), &savedErrno);
 
-    if (n > 0) {
+    if (n > 0)
+    {
         // ================================================================
         // 正常读取：数据已存入 inputBuffer_，通知用户处理
         // ================================================================
         // shared_from_this() 确保在用户回调执行期间连接对象不会被销毁
         // messageCallback_ 的签名: void(shared_ptr<TcpConnection>, Buffer&,
         // Timestamp)
-        if (messageCallback_) {
+        if (messageCallback_)
+        {
             messageCallback_(shared_from_this(), inputBuffer_, receiveTime);
         }
-    } else if (n == 0) {
+    }
+    else if (n == 0)
+    {
         // ================================================================
         // read 返回 0 表示对端关闭了连接（TCP FIN）
         // ================================================================
         handleClose();
-    } else {
+    }
+    else
+    {
         // ================================================================
         // read 返回 -1 表示出错（非 EAGAIN 的致命错误）
         // ================================================================
@@ -219,35 +234,45 @@ void TcpConnection::handleRead(Timestamp receiveTime) noexcept {
 ///   4. 没写完：
 ///      - outputBuffer_ 中保留剩余数据，等待下次可写事件
 ///
-void TcpConnection::handleWrite() noexcept {
+void TcpConnection::handleWrite() noexcept
+{
     loop_->assertInLoopThread();
 
     // 如果有数据待发送，尝试写入
-    if (channel_->isWriting()) {
+    if (channel_->isWriting())
+    {
         auto data = outputBuffer_.readableSpan();
         ssize_t n = sockets::write(channel_->fd(), data.data(), data.size());
-        if (n > 0) {
+        if (n > 0)
+        {
             outputBuffer_.retrieve(static_cast<size_t>(n));
             // 全部发送完成
-            if (outputBuffer_.readableBytes() == 0) {
+            if (outputBuffer_.readableBytes() == 0)
+            {
                 channel_->disableWriting();  // 关闭写事件监听
-                if (writeCompleteCallback_) {
+                if (writeCompleteCallback_)
+                {
                     // queueInLoop 确保执行时状态一致
-                    loop_->queueInLoop(
-                        [conn = shared_from_this(),
-                         cb = writeCompleteCallback_]() { cb(conn); });
+                    loop_->queueInLoop([conn = shared_from_this(),
+                                        cb = writeCompleteCallback_]()
+                                       { cb(conn); });
                 }
                 // 如果正在关闭中（shutdown
                 // 时还有数据没发完），现在可以安全关闭了
-                if (state_ == StateE::kDisconnecting) {
+                if (state_ == StateE::kDisconnecting)
+                {
                     shutdownInLoop();
                 }
             }
-        } else {
+        }
+        else
+        {
             // write 失败（不是 EAGAIN 的致命错误）
             LOG_SYSERR << "TcpConnection::handleWrite";
         }
-    } else {
+    }
+    else
+    {
         LOG_TRACE << std::format("Connection fd = {} is down, no more writing",
                                  channel_->fd());
     }
@@ -268,20 +293,24 @@ void TcpConnection::handleWrite() noexcept {
 ///
 /// 状态检查：只有 kConnected 状态才接受发送，否则静默丢弃。
 ///
-void TcpConnection::send(std::string_view message) {
+void TcpConnection::send(std::string_view message)
+{
     // acquire 语义：与 setState 的 release 配对，确保读到最新的 state_
-    if (state_.load(std::memory_order_acquire) == StateE::kConnected) {
-        if (loop_->isInLoopThread()) {
+    if (state_.load(std::memory_order_acquire) == StateE::kConnected)
+    {
+        if (loop_->isInLoopThread())
+        {
             // 已经在 EventLoop 线程，直接执行
             sendInLoop(message);
-        } else {
+        }
+        else
+        {
             // 跨线程：把数据和 shared_ptr 打包进 lambda，提交给 EventLoop
             // 注意：必须用 std::string(message) 做一次拷贝！
             // 因为 message 指向的数据可能在 lambda 执行前就被释放了
             loop_->runInLoop(
-                [conn = shared_from_this(), str = std::string(message)]() {
-                    conn->sendInLoop(str);
-                });
+                [conn = shared_from_this(), str = std::string(message)]()
+                { conn->sendInLoop(str); });
         }
     }
 }
@@ -294,16 +323,22 @@ void TcpConnection::send(std::string_view message) {
 ///   - 跨线程时直接"转移"整个 Buffer 到 EventLoop 线程，零拷贝
 ///   - 如果在 EventLoop 线程，读取数据后清空 Buffer（不移动整个 Buffer）
 ///
-void TcpConnection::send(Buffer&& buf) {
-    if (state_.load(std::memory_order_acquire) == StateE::kConnected) {
-        if (loop_->isInLoopThread()) {
+void TcpConnection::send(Buffer&& buf)
+{
+    if (state_.load(std::memory_order_acquire) == StateE::kConnected)
+    {
+        if (loop_->isInLoopThread())
+        {
             auto data = buf.readableSpan();
             sendInLoop({data.data(), data.size()});
             buf.retrieveAll();  // 清空，数据已在 sendInLoop 中处理
-        } else {
+        }
+        else
+        {
             // 整个 Buffer 移动到 IO 线程，零内存分配开销
             loop_->runInLoop(
-                [conn = shared_from_this(), b = std::move(buf)]() mutable {
+                [conn = shared_from_this(), b = std::move(buf)]() mutable
+                {
                     auto data = b.readableSpan();
                     conn->sendInLoop({data.data(), data.size()});
                 });
@@ -332,38 +367,46 @@ void TcpConnection::send(Buffer&& buf) {
 ///
 /// @param message 要发送的数据（已经过跨线程拷贝，此处安全）
 ///
-void TcpConnection::sendInLoop(std::string_view message) {
+void TcpConnection::sendInLoop(std::string_view message)
+{
     loop_->assertInLoopThread();
     ssize_t nwrote = 0;
     size_t remaining = message.size();
     bool faultError = false;
 
     // 如果连接已断开，放弃发送
-    if (state_.load(std::memory_order_acquire) == StateE::kDisconnected) {
+    if (state_.load(std::memory_order_acquire) == StateE::kDisconnected)
+    {
         LOG_WARN << "disconnected, give up writing";
         return;
     }
 
     // 情况 A：outputBuffer_ 为空 → 尝试直接写
-    if (!channel_->isWriting() && outputBuffer_.readableBytes() == 0) {
+    if (!channel_->isWriting() && outputBuffer_.readableBytes() == 0)
+    {
         nwrote = sockets::write(channel_->fd(), message.data(), message.size());
-        if (nwrote >= 0) {
-            remaining = message.size() - nwrote;
+        if (nwrote >= 0)
+        {
+            remaining = message.size() - (std::size_t)nwrote;
             // 全部写完，且设置了写完成回调
-            if (remaining == 0 && writeCompleteCallback_) {
+            if (remaining == 0 && writeCompleteCallback_)
+            {
                 // queueInLoop（而非 runInLoop）：让当前正在处理的回调先执行完
                 loop_->queueInLoop(
-                    [conn = shared_from_this(), cb = writeCompleteCallback_]() {
-                        cb(conn);
-                    });
+                    [conn = shared_from_this(), cb = writeCompleteCallback_]()
+                    { cb(conn); });
             }
-        } else {
+        }
+        else
+        {
             // write 返回 -1
             nwrote = 0;
-            if (errno != EWOULDBLOCK) {
+            if (errno != EWOULDBLOCK)
+            {
                 // 不是"缓冲区满"的错误，是真正的错误
                 LOG_SYSERR << "TcpConnection::sendInLoop";
-                if (errno == EPIPE || errno == ECONNRESET) {
+                if (errno == EPIPE || errno == ECONNRESET)
+                {
                     faultError = true;  // 对端已关闭，放弃后续处理
                 }
             }
@@ -373,19 +416,23 @@ void TcpConnection::sendInLoop(std::string_view message) {
 
     assert(remaining <= message.size());
     // 情况 B：有剩余数据需要入队
-    if (!faultError && remaining > 0) {
+    if (!faultError && remaining > 0)
+    {
         size_t oldLen = outputBuffer_.readableBytes();
         // 高水位检查：缓冲区从低于水位变为高于水位时，触发一次告警
         if (oldLen + remaining >= highWaterMark_ && oldLen < highWaterMark_ &&
-            highWaterMarkCallback_) {
+            highWaterMarkCallback_)
+        {
             loop_->queueInLoop([conn = shared_from_this(),
                                 cb = highWaterMarkCallback_,
                                 len = oldLen + remaining]() { cb(conn, len); });
         }
         // 追加到发送缓冲区
-        outputBuffer_.append(message.substr(nwrote, remaining));
+        outputBuffer_.append(
+            message.substr(static_cast<std::size_t>(nwrote), remaining));
         // 启用写事件监听 —— 当 socket 下次可写时，handleWrite 会被调用
-        if (!channel_->isWriting()) {
+        if (!channel_->isWriting())
+        {
             channel_->enableWriting();
         }
     }
@@ -423,12 +470,14 @@ void TcpConnection::sendInLoop(std::string_view message) {
 ///   防止多线程同时调用 shutdown/forceClose 导致重复操作。
 ///   CAS 确保只有一个线程能成功执行状态转换。
 ///
-void TcpConnection::shutdown() {
+void TcpConnection::shutdown()
+{
     auto expected = StateE::kConnected;
     if (state_.compare_exchange_strong(expected, StateE::kDisconnecting,
-                                       std::memory_order_release)) {
-        loop_->runInLoop(
-            [conn = shared_from_this()] { conn->shutdownInLoop(); });
+                                       std::memory_order_release))
+    {
+        loop_->runInLoop([conn = shared_from_this()]
+                         { conn->shutdownInLoop(); });
     }
 }
 
@@ -439,9 +488,11 @@ void TcpConnection::shutdown() {
 /// 如果此时还在等待写事件（有数据没发完），则不执行 shutdown，
 /// 等 handleWrite 发完所有数据后再处理。
 ///
-void TcpConnection::shutdownInLoop() {
+void TcpConnection::shutdownInLoop()
+{
     loop_->assertInLoopThread();
-    if (!channel_->isWriting()) {
+    if (!channel_->isWriting())
+    {
         // 只有不在等待写事件时才安全关闭写端
         socket_->shutdownWrite();
     }
@@ -453,14 +504,16 @@ void TcpConnection::shutdownInLoop() {
 /// 使用 CAS 循环 (compare_exchange_weak)：
 ///   weak 版本在 spurious failure 时重试，在高竞争场景下效率更高。
 ///
-void TcpConnection::forceClose() {
+void TcpConnection::forceClose()
+{
     auto expected = state_.load(std::memory_order_acquire);
-    while (expected == StateE::kConnected ||
-           expected == StateE::kDisconnecting) {
+    while (expected == StateE::kConnected || expected == StateE::kDisconnecting)
+    {
         if (state_.compare_exchange_weak(expected, StateE::kDisconnecting,
-                                         std::memory_order_release)) {
-            loop_->queueInLoop(
-                [conn = shared_from_this()] { conn->forceCloseInLoop(); });
+                                         std::memory_order_release))
+        {
+            loop_->queueInLoop([conn = shared_from_this()]
+                               { conn->forceCloseInLoop(); });
             break;
         }
     }
@@ -478,20 +531,25 @@ void TcpConnection::forceClose() {
 ///   如果连接在延迟期间已经因其他原因被销毁，weak_ptr.lock() 返回空，
 ///   lambda 直接返回，不会访问悬空指针。
 ///
-void TcpConnection::forceCloseWithDelay(double seconds) {
+void TcpConnection::forceCloseWithDelay(double seconds)
+{
     auto expected = state_.load(std::memory_order_acquire);
-    while (expected == StateE::kConnected ||
-           expected == StateE::kDisconnecting) {
+    while (expected == StateE::kConnected || expected == StateE::kDisconnecting)
+    {
         if (state_.compare_exchange_weak(expected, StateE::kDisconnecting,
-                                         std::memory_order_release)) {
+                                         std::memory_order_release))
+        {
             // 使用 weak_ptr 而非 shared_ptr：
             // 避免因这个定时器持有 shared_ptr 而阻止连接正常析构
-            loop_->runAfter(seconds, [weakConn = std::weak_ptr<TcpConnection>(
-                                          shared_from_this())]() {
-                if (auto conn = weakConn.lock()) {
-                    conn->forceClose();
-                }
-            });
+            loop_->runAfter(
+                seconds,
+                [weakConn = std::weak_ptr<TcpConnection>(shared_from_this())]()
+                {
+                    if (auto conn = weakConn.lock())
+                    {
+                        conn->forceClose();
+                    }
+                });
             break;
         }
     }
@@ -500,11 +558,13 @@ void TcpConnection::forceCloseWithDelay(double seconds) {
 ///
 /// @brief 在 EventLoop 线程中执行强制关闭
 ///
-void TcpConnection::forceCloseInLoop() {
+void TcpConnection::forceCloseInLoop()
+{
     loop_->assertInLoopThread();
     if (state_ == StateE::kConnected || state_ == StateE::kDisconnecting
         // || state_ == StateE::kDisconnected
-    ) {
+    )
+    {
         handleClose();
     }
 }
@@ -516,8 +576,10 @@ void TcpConnection::forceCloseInLoop() {
 ///
 /// @brief 返回状态字符串（调试/日志用）
 ///
-std::string_view TcpConnection::stateToString() const noexcept {
-    switch (state_) {
+std::string_view TcpConnection::stateToString() const noexcept
+{
+    switch (state_)
+    {
         using enum StateE;
         case kDisconnected:
             return "kDisconnected";
@@ -536,7 +598,8 @@ std::string_view TcpConnection::stateToString() const noexcept {
 // Socket 选项
 // ============================================================================
 
-void TcpConnection::setTcpNoDelay(bool on) {
+void TcpConnection::setTcpNoDelay(bool on)
+{
     socket_->setTcpNoDelay(on);
 }
 
@@ -549,17 +612,20 @@ void TcpConnection::setTcpNoDelay(bool on) {
 ///
 /// 调用 runInLoop（而非 runInLoop）确保在 EventLoop 线程执行。
 ///
-void TcpConnection::startRead() {
-    loop_->runInLoop(
-        [conn = shared_from_this()] { return conn->startReadInLoop(); });
+void TcpConnection::startRead()
+{
+    loop_->runInLoop([conn = shared_from_this()]
+                     { return conn->startReadInLoop(); });
 }
 
 ///
 /// @brief 在 EventLoop 线程中启用读事件监听
 ///
-void TcpConnection::startReadInLoop() {
+void TcpConnection::startReadInLoop()
+{
     loop_->assertInLoopThread();
-    if (!reading_ || !channel_->isReading()) {
+    if (!reading_ || !channel_->isReading())
+    {
         channel_->enableReading();  // 告诉 Poller 监听 POLLIN
         reading_ = true;
     }
@@ -571,17 +637,20 @@ void TcpConnection::startReadInLoop() {
 /// 暂停后，socket 接收缓冲区会逐渐填满，内核的 TCP 流控会通知对端减小发送窗口。
 /// 这是一种"背压"(back-pressure) 机制。
 ///
-void TcpConnection::stopRead() {
-    loop_->runInLoop(
-        [conn = shared_from_this()] { return conn->stopReadInLoop(); });
+void TcpConnection::stopRead()
+{
+    loop_->runInLoop([conn = shared_from_this()]
+                     { return conn->stopReadInLoop(); });
 }
 
 ///
 /// @brief 在 EventLoop 线程中禁用读事件监听
 ///
-void TcpConnection::stopReadInLoop() {
+void TcpConnection::stopReadInLoop()
+{
     loop_->assertInLoopThread();
-    if (reading_ || channel_->isReading()) {
+    if (reading_ || channel_->isReading())
+    {
         channel_->disableReading();  // 从 Poller 中移除 POLLIN
         reading_ = false;
     }
@@ -617,7 +686,8 @@ void TcpConnection::stopReadInLoop() {
 ///   4. connectionCallback_(shared_from_this())
 ///      通知用户"连接已建立"（通常用户在此设置高层回调）。
 ///
-void TcpConnection::connectEstablished() {
+void TcpConnection::connectEstablished()
+{
     loop_->assertInLoopThread();
     assert(state_ == StateE::kConnecting);
     setState(StateE::kConnected);
@@ -626,7 +696,8 @@ void TcpConnection::connectEstablished() {
     // 开闸放水：开始监听读事件
     channel_->enableReading();
 
-    if (connectionCallback_) {
+    if (connectionCallback_)
+    {
         connectionCallback_(shared_from_this());
     }
 }
@@ -644,22 +715,30 @@ void TcpConnection::connectEstablished() {
 ///      （这是析构 assert 的关键前提！）
 ///   4. 调用 connectionCallback_ 通知用户"连接已断开"
 ///
-void TcpConnection::connectDestroyed() {
+void TcpConnection::connectDestroyed()
+{
     loop_->assertInLoopThread();
-    if (state_ == StateE::kConnected) {
+    if (state_ == StateE::kConnected)
+    {
         setState(StateE::kDisconnected);
         channel_->disableAll();
-        if (connectionCallback_) {
+        if (connectionCallback_)
+        {
             connectionCallback_(shared_from_this());
         }
         channel_->remove();
-    } else if (state_ == StateE::kConnecting) {
+    }
+    else if (state_ == StateE::kConnecting)
+    {
         // 从未进入 kConnected 状态，Channel 未启用读事件，
         // 直接切到 kDisconnected 即可，无需操作 Poller
         setState(StateE::kDisconnected);
-    } else {
+    }
+    else
+    {
         // kDisconnecting 或 kDisconnected
-        if (state_ != StateE::kDisconnected) {
+        if (state_ != StateE::kDisconnected)
+        {
             setState(StateE::kDisconnected);
         }
         channel_->disableAll();
@@ -692,7 +771,8 @@ void TcpConnection::connectDestroyed() {
 ///   防止 connectionCallback_ 中用户 drop 了最后一个 shared_ptr 导致
 ///   连接在 closeCallback_ 调用前就被析构。
 ///
-void TcpConnection::handleClose() noexcept {
+void TcpConnection::handleClose() noexcept
+{
     loop_->assertInLoopThread();
     LOG_TRACE << std::format("fd={}, state={}", channel_->fd(), stateToString());
     assert(state_ == StateE::kConnected || state_ == StateE::kDisconnecting);
@@ -702,11 +782,13 @@ void TcpConnection::handleClose() noexcept {
 
     // guardThis: 确保在回调执行期间连接对象不被销毁
     TcpConnectionPtr guardThis{shared_from_this()};
-    if (connectionCallback_) {
+    if (connectionCallback_)
+    {
         connectionCallback_(guardThis);
     }
     // must be the last line —— closeCallback_ 会触发 TcpServer 清理此连接
-    if (closeCallback_) {
+    if (closeCallback_)
+    {
         closeCallback_(guardThis);
     }
 }
@@ -721,7 +803,8 @@ void TcpConnection::handleClose() noexcept {
 /// 通过 getsockopt(SO_ERROR) 获取 pending 的 socket 错误并记录日志。
 /// SO_ERROR 被读取后会被内核清除。
 ///
-void TcpConnection::handleError() noexcept {
+void TcpConnection::handleError() noexcept
+{
     int err = sockets::getSocketError(channel_->fd());
     LOG_ERROR << std::format(
         "TcpConnection::handleError [{}] - SO_ERROR={} {}", name_, err,

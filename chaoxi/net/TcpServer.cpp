@@ -91,7 +91,7 @@ TcpServer::~TcpServer()
 ///
 /// 必须在 start() 之前调用。
 ///
-void TcpServer::setThreadNum(int numThreads)
+void TcpServer::setThreadNum(unsigned numThreads)
 {
     assert(0 <= numThreads);
     threadPool_->setThreadNum(numThreads);
@@ -209,8 +209,9 @@ void TcpServer::removeConnectionInLoop(const TcpConnectionPtr& conn)
         conn->name());
 
     // 从连接表中移除
-    size_t n = connections_.erase(conn->name());
-    assert(n == 1);
+    // size_t n = connections_.erase(conn->name());
+    // assert(n == 1);
+    connections_.erase(conn->name());
 
     // 在 io 线程中调用 connectDestroyed（清理 Channel）
     EventLoop* ioLoop = conn->getLoop();

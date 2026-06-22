@@ -40,6 +40,6 @@ bool isMainThread() noexcept;
 
 void sleepUsec(int64_t usec) noexcept;
 
-std::string stackTrace(std::size_t skip = 1);
+std::string stackTrace(unsigned short skip = 1);
 
 };  // namespace chaoxi::CurrentThread

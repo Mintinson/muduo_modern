@@ -117,7 +117,7 @@ public:
     ///   - 0: 所有 I/O 在 acceptor 线程中处理（默认，单线程模式）
     ///   - 1: 所有 I/O 在独立的一个 io 线程中处理
     ///   - N: 创建 N 个 io 线程，新连接被 round-robin 分配
-    void setThreadNum(int numThreads);
+    void setThreadNum(unsigned numThreads);
 
     /// @brief 设置线程初始化回调（每个 io 线程启动时调用）
     void setThreadInitCallback(ThreadInitCallback cb)

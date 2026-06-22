@@ -1,6 +1,73 @@
 # ==========================
 # 1. Base 模块 (底层的工具、日志、线程池等)
 # ==========================
+function(chaoxi_target_enable_warnings target)
+    if(NOT CHAOXI_ENABLE_STRICT_WARNINGS)
+        return()
+    endif()
+
+    target_compile_options(${target} PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wextra>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wpedantic>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wconversion>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wsign-conversion>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wshadow>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wformat=2>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wcast-qual>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wcast-align>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wundef>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wnon-virtual-dtor>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Woverloaded-virtual>
+        $<$<CXX_COMPILER_ID:MSVC>:/W4>
+        $<$<CXX_COMPILER_ID:MSVC>:/permissive->
+        $<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>
+    )
+
+    if(CHAOXI_WARNINGS_AS_ERRORS)
+        target_compile_options(${target} PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Werror>
+            $<$<CXX_COMPILER_ID:MSVC>:/WX>
+        )
+    endif()
+endfunction()
+
+function(chaoxi_target_suppress_warnings target)
+    foreach(warning IN LISTS ARGN)
+        if(warning STREQUAL "deprecated-declarations")
+            target_compile_options(${target} PRIVATE
+                $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-deprecated-declarations>
+                $<$<CXX_COMPILER_ID:MSVC>:/wd4996>
+            )
+        elseif(warning STREQUAL "unused-parameter")
+            target_compile_options(${target} PRIVATE
+                $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-unused-parameter>
+                $<$<CXX_COMPILER_ID:MSVC>:/wd4100>
+            )
+        elseif(warning STREQUAL "shadow")
+            target_compile_options(${target} PRIVATE
+                $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-shadow>
+                $<$<CXX_COMPILER_ID:MSVC>:/wd4456>
+                $<$<CXX_COMPILER_ID:MSVC>:/wd4457>
+            )
+        elseif(warning STREQUAL "sign-conversion")
+            target_compile_options(${target} PRIVATE
+                $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-sign-conversion>
+            )
+        elseif(warning STREQUAL "conversion")
+            target_compile_options(${target} PRIVATE
+                $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-conversion>
+            )
+        elseif(warning STREQUAL "format")
+            target_compile_options(${target} PRIVATE
+                $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-format>
+            )
+        else()
+            message(WARNING "chaoxi_target_suppress_warnings: unknown warning '${warning}' for target ${target}")
+        endif()
+    endforeach()
+endfunction()
+
 # TODO: 当项目完成的时候，将下面两句解开，方便一点
 # file(GLOB_RECURSE BASE_SOURCES CONFIGURE_DEPENDS "base/*.cpp")
 # add_library(chaoxi_base STATIC ${BASE_SOURCES})
@@ -14,6 +81,7 @@ add_library(chaoxi_base STATIC
     base/AsyncLogging.cpp
 )
 add_library(chaoxi::base ALIAS chaoxi_base)
+chaoxi_target_enable_warnings(chaoxi_base)
 
 target_include_directories(chaoxi_base
     PUBLIC
@@ -56,6 +124,7 @@ add_library(chaoxi_net STATIC
     # net/TimeQueue.cpp
 )
 add_library(chaoxi::net ALIAS chaoxi_net)
+chaoxi_target_enable_warnings(chaoxi_net)
 
 target_include_directories(chaoxi_net
     PUBLIC

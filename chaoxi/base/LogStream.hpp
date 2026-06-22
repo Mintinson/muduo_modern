@@ -301,9 +301,10 @@ public:
     LogStream& format(std::format_string<Args...> fmt, Args&&... args)
     {
         // 直接将格式化结果写到缓冲区尾部，限制最大写入量防止溢出
-        auto result = std::format_to_n(buffer_.current(), buffer_.avail(), fmt,
-                                       std::forward<Args>(args)...);
-        buffer_.add(result.out - buffer_.current());
+        auto result = std::format_to_n(buffer_.current(),
+                                       static_cast<ptrdiff_t>(buffer_.avail()),
+                                       fmt, std::forward<Args>(args)...);
+        buffer_.add(static_cast<std::size_t>(result.out - buffer_.current()));
         return *this;
     }
 

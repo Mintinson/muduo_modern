@@ -28,15 +28,17 @@ ssize_t Buffer::readFd(int fd, int* savedErrno)
     if (n < 0)
     {
         *savedErrno = errno;
+        return n;
     }
-    else if (static_cast<std::size_t>(n) <= writable)
+
+    if (auto written = static_cast<std::size_t>(n); written <= writable)
     {
-        writerIndex_ += n;
+        writerIndex_ += written;
     }
     else
     {
         writerIndex_ = buffer_.size();
-        append(extrabuf.data(), static_cast<std::size_t>(n - writable));
+        append(extrabuf.data(), static_cast<std::size_t>(written - writable));
     }
 
     return n;
