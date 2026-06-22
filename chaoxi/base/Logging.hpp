@@ -2,8 +2,10 @@
 
 #include "chaoxi/base/LogStream.hpp"
 
+#include <cstddef>
 #include <functional>
 #include <source_location>
+#include <string_view>
 
 namespace chaoxi
 {
@@ -29,16 +31,39 @@ public:
     {
         auto pos = path.find_last_of("/\\");
         return pos == std::string_view::npos ? path : path.substr(pos + 1);
+        // const char* slash =
+        //     __builtin_strrchr(path.data(), '/');  // 编译器 intrinsic，极快
+        // if (slash)
+        // {
+        //     return {slash + 1};
+        // }
+        // return std::string_view(path);
     }
 
-    explicit Logger(std::source_location sl = std::source_location::current());
-    // explicit Logger(LogLevel level,
-    //                 std::source_location sl =
-    //                 std::source_location::current());
-    explicit Logger(
-        LogLevel level,
-        int savedErrno = 0,
-        const std::source_location sl = std::source_location::current());
+    // 定义一个编译期生成的源码位置信息结构
+    struct LogLocation
+    {
+        std::string_view basename;
+        std::string_view function_name;
+        uint_least32_t line;
+
+        // consteval 强制在调用端（宏展开的地方）发生编译期求值
+        consteval LogLocation(const std::source_location& loc =
+                                  std::source_location::current()) noexcept
+            : basename(get_basename(loc.file_name()))
+            , function_name(loc.function_name())
+            , line(loc.line())
+        {
+        }
+    };
+
+    // explicit Logger(
+    //     LogLevel level,
+    //     int savedErrno = 0,
+    //     const std::source_location sl = std::source_location::current());
+    explicit Logger(LogLevel level,
+                    int savedErrno = 0,
+                    LogLocation loc = LogLocation{});
 
     ~Logger();
 
@@ -63,17 +88,26 @@ private:
     class Impl
     {
     public:
+        static constexpr std::size_t kMicroSecondsWidth =
+            8;                                         // 微秒宽度，固定为 6 位
+        static constexpr std::size_t kTimeWidth = 25;  // 时间的总长度
+        static_assert(kTimeWidth >= kMicroSecondsWidth);
+
         using LogLevel = Logger::LogLevel;
 
-        Impl(LogLevel level,
-             int savedErrno,
-             const std::source_location sl = std::source_location::current());
+        // Impl(LogLevel level,
+        //      int savedErrno,
+        //      const std::source_location sl = std::source_location::current());
+        constexpr Impl(LogLevel level,
+                       int savedErrno,
+                       LogLocation sl = LogLocation{});
         void formatTime();
         void finish();
 
         LogStream stream_;
         LogLevel level_;
-        std::source_location loc_;
+        // std::source_location loc_;
+        LogLocation loc_;
     };
 
     Impl impl_;
@@ -116,14 +150,14 @@ private:
 ///       FLOG_INFO("plain")   → 等同于 LOG_INFO << "plain"
 ///       FLOG_INFO("{}", val) → 格式化单个值
 ///
-#define FLOG_TRACE(...)                                                    \
-    if (chaoxi::Logger::logLevel() <= chaoxi::Logger::LogLevel::TRACE)   \
+#define FLOG_TRACE(...)                                                \
+    if (chaoxi::Logger::logLevel() <= chaoxi::Logger::LogLevel::TRACE) \
     chaoxi::Logger(chaoxi::Logger::LogLevel::TRACE).stream().format(__VA_ARGS__)
-#define FLOG_DEBUG(...)                                                    \
-    if (chaoxi::Logger::logLevel() <= chaoxi::Logger::LogLevel::DEBUG)   \
+#define FLOG_DEBUG(...)                                                \
+    if (chaoxi::Logger::logLevel() <= chaoxi::Logger::LogLevel::DEBUG) \
     chaoxi::Logger(chaoxi::Logger::LogLevel::DEBUG).stream().format(__VA_ARGS__)
-#define FLOG_INFO(...)                                                     \
-    if (chaoxi::Logger::logLevel() <= chaoxi::Logger::LogLevel::INFO)    \
+#define FLOG_INFO(...)                                                \
+    if (chaoxi::Logger::logLevel() <= chaoxi::Logger::LogLevel::INFO) \
     chaoxi::Logger(chaoxi::Logger::LogLevel::INFO).stream().format(__VA_ARGS__)
 // WARN/ERROR/FATAL 没 if 过滤，无条件执行
 #define FLOG_WARN(...) \
@@ -132,7 +166,11 @@ private:
     chaoxi::Logger(chaoxi::Logger::LogLevel::ERROR).stream().format(__VA_ARGS__)
 #define FLOG_FATAL(...) \
     chaoxi::Logger(chaoxi::Logger::LogLevel::FATAL).stream().format(__VA_ARGS__)
-#define FLOG_SYSERR(...) \
-    chaoxi::Logger(chaoxi::Logger::LogLevel::ERROR, errno).stream().format(__VA_ARGS__)
-#define FLOG_SYSFATAL(...) \
-    chaoxi::Logger(chaoxi::Logger::LogLevel::FATAL, errno).stream().format(__VA_ARGS__)
+#define FLOG_SYSERR(...)                                   \
+    chaoxi::Logger(chaoxi::Logger::LogLevel::ERROR, errno) \
+        .stream()                                          \
+        .format(__VA_ARGS__)
+#define FLOG_SYSFATAL(...)                                 \
+    chaoxi::Logger(chaoxi::Logger::LogLevel::FATAL, errno) \
+        .stream()                                          \
+        .format(__VA_ARGS__)

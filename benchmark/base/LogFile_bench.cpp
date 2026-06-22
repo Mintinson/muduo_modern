@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
+#include <string_view>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -72,14 +73,14 @@ void bench(const char* type, Logger::OutputFunc outputFunc)
     // 构造一条日志负载，使其最终生成的长度接近 110 字节
     // Header 约占 40-50 字节 (日期, 线程id, 级别, 源文件)
     // 加上 msg 约 60 字节，正好达到 110 字节左右
-    const char* msg =
+    constexpr std::string_view msg =
         "123456789012345678901234567890123456789012345678901234567890";
 
     auto start = std::chrono::high_resolution_clock::now();
 
     for (int i = 0; i < kBatchSize; ++i)
     {
-        LOG_INFO << msg << " " << i;
+        LOG_INFO << msg << ' ' << i;
     }
 
     auto end = std::chrono::high_resolution_clock::now();

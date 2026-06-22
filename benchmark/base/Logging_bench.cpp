@@ -57,14 +57,14 @@ BENCHMARK_F(LoggingFixture, LOG_INT)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_INT)(benchmark::State& state)
-{
-    int i = 0;
-    for (auto _ : state)
-    {
-        FLOG_INFO("{}", i++);
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_INT)(benchmark::State& state)
+// {
+//     int i = 0;
+//     for (auto _ : state)
+//     {
+//         FLOG_INFO("{}", i++);
+//     }
+// }
 
 // ============================================================================
 // 2. double —— LOG_INFO << double  vs  FLOG_INFO("{}", double)
@@ -79,14 +79,14 @@ BENCHMARK_F(LoggingFixture, LOG_DOUBLE)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_DOUBLE)(benchmark::State& state)
-{
-    double d = 0.0;
-    for (auto _ : state)
-    {
-        FLOG_INFO("{:.12g}", d += 1.0);
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_DOUBLE)(benchmark::State& state)
+// {
+//     double d = 0.0;
+//     for (auto _ : state)
+//     {
+//         FLOG_INFO("{:.12g}", d += 1.0);
+//     }
+// }
 
 // ============================================================================
 // 3. string_view —— LOG_INFO << sv  vs  FLOG_INFO("{}", sv)
@@ -101,14 +101,14 @@ BENCHMARK_F(LoggingFixture, LOG_STRING)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_STRING)(benchmark::State& state)
-{
-    std::string_view msg = "hello world benchmark test message";
-    for (auto _ : state)
-    {
-        FLOG_INFO("{}", msg);
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_STRING)(benchmark::State& state)
+// {
+//     std::string_view msg = "hello world benchmark test message";
+//     for (auto _ : state)
+//     {
+//         FLOG_INFO("{}", msg);
+//     }
+// }
 
 // ============================================================================
 // 4. void* —— LOG_INFO << ptr  vs  FLOG_INFO("{}", ptr)
@@ -123,14 +123,14 @@ BENCHMARK_F(LoggingFixture, LOG_PTR)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_PTR)(benchmark::State& state)
-{
-    uintptr_t i = 0;
-    for (auto _ : state)
-    {
-        FLOG_INFO("{}", reinterpret_cast<void*>(i++));
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_PTR)(benchmark::State& state)
+// {
+//     uintptr_t i = 0;
+//     for (auto _ : state)
+//     {
+//         FLOG_INFO("{}", reinterpret_cast<void*>(i++));
+//     }
+// }
 
 // ============================================================================
 // 5. 混合类型: int + string
@@ -142,19 +142,19 @@ BENCHMARK_F(LoggingFixture, LOG_MIXED)(benchmark::State& state)
     std::string_view msg = "message";
     for (auto _ : state)
     {
-        LOG_INFO << i++ << " " << msg;
+        LOG_INFO << i++ << ' ' << msg;
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_MIXED)(benchmark::State& state)
-{
-    int i = 0;
-    std::string_view msg = "message";
-    for (auto _ : state)
-    {
-        FLOG_INFO("{} {}", i++, msg);
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_MIXED)(benchmark::State& state)
+// {
+//     int i = 0;
+//     std::string_view msg = "message";
+//     for (auto _ : state)
+//     {
+//         FLOG_INFO("{} {}", i++, msg);
+//     }
+// }
 
 // ============================================================================
 // 6. 日志级别过滤 —— DEBUG 在 INFO 级别下被跳过（只评估 if 条件）
@@ -172,15 +172,15 @@ BENCHMARK_F(LoggingFixture, LOG_DEBUG_FILTERED)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_DEBUG_FILTERED)(benchmark::State& state)
-{
-    int i = 0;
-    for (auto _ : state)
-    {
-        FLOG_DEBUG("{}", i++);  // 同 LOG_DEBUG，if 条件过滤
-        benchmark::DoNotOptimize(i);
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_DEBUG_FILTERED)(benchmark::State& state)
+// {
+//     int i = 0;
+//     for (auto _ : state)
+//     {
+//         FLOG_DEBUG("{}", i++);  // 同 LOG_DEBUG，if 条件过滤
+//         benchmark::DoNotOptimize(i);
+//     }
+// }
 
 // ============================================================================
 // 7. Full Logger —— 模拟完整日志输出（含 source_location，不含 I/O）
@@ -195,13 +195,13 @@ BENCHMARK_F(LoggingFixture, LOG_SHORT)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_SHORT)(benchmark::State& state)
-{
-    for (auto _ : state)
-    {
-        FLOG_INFO("{}", "short");
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_SHORT)(benchmark::State& state)
+// {
+//     for (auto _ : state)
+//     {
+//         FLOG_INFO("{}", "short");
+//     }
+// }
 
 // ============================================================================
 // 8. 长消息 —— 测试消息长度对性能的影响
@@ -219,13 +219,13 @@ BENCHMARK_F(LoggingFixture, LOG_LONG)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_LONG)(benchmark::State& state)
-{
-    for (auto _ : state)
-    {
-        FLOG_INFO("{}", kLongMsg);
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_LONG)(benchmark::State& state)
+// {
+//     for (auto _ : state)
+//     {
+//         FLOG_INFO("{}", kLongMsg);
+//     }
+// }
 
 // ============================================================================
 // 9. 省略日志 level —— LOG_WARN (无 if 过滤) vs LOG_INFO (有 if 过滤)
@@ -241,14 +241,14 @@ BENCHMARK_F(LoggingFixture, LOG_WARN_INT)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_WARN_INT)(benchmark::State& state)
-{
-    int i = 0;
-    for (auto _ : state)
-    {
-        FLOG_WARN("{}", i++);
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_WARN_INT)(benchmark::State& state)
+// {
+//     int i = 0;
+//     for (auto _ : state)
+//     {
+//         FLOG_WARN("{}", i++);
+//     }
+// }
 
 // ============================================================================
 // 10. 格式化精度 —— 对比 format_to_n 直接写入 LogStream vs std::format 中间临时
@@ -266,14 +266,14 @@ BENCHMARK_F(LoggingFixture, LOG_THREE_INTS)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_THREE_INTS)(benchmark::State& state)
-{
-    int a = 1, b = 2, c = 3;
-    for (auto _ : state)
-    {
-        FLOG_INFO("{} {} {}", a, b, c);
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_THREE_INTS)(benchmark::State& state)
+// {
+//     int a = 1, b = 2, c = 3;
+//     for (auto _ : state)
+//     {
+//         FLOG_INFO("{} {} {}", a, b, c);
+//     }
+// }
 
 // ============================================================================
 // 11. 大整数 (int64_t) —— 更多位数需要更多 to_chars / format 工作
@@ -288,14 +288,14 @@ BENCHMARK_F(LoggingFixture, LOG_INT64)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_INT64)(benchmark::State& state)
-{
-    int64_t i = INT64_MAX - 100000;
-    for (auto _ : state)
-    {
-        FLOG_INFO("{}", i++);
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_INT64)(benchmark::State& state)
+// {
+//     int64_t i = INT64_MAX - 100000;
+//     for (auto _ : state)
+//     {
+//         FLOG_INFO("{}", i++);
+//     }
+// }
 
 BENCHMARK_F(LoggingFixture, LOG_FORMAT)(benchmark::State& state)
 {
@@ -308,12 +308,12 @@ BENCHMARK_F(LoggingFixture, LOG_FORMAT)(benchmark::State& state)
     }
 }
 
-BENCHMARK_F(LoggingFixture, FLOG_FORMAT)(benchmark::State& state)
-{
-    int64_t i = INT64_MAX - 100000;
-    for (auto _ : state)
-    {
-        FLOG_INFO("This is a format {} with {} on the floor (Thread: {})", i,
-                  i * 12.5, (void*)&i);
-    }
-}
+// BENCHMARK_F(LoggingFixture, FLOG_FORMAT)(benchmark::State& state)
+// {
+//     int64_t i = INT64_MAX - 100000;
+//     for (auto _ : state)
+//     {
+//         FLOG_INFO("This is a format {} with {} on the floor (Thread: {})", i,
+//                   i * 12.5, (void*)&i);
+//     }
+// }

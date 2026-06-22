@@ -2,7 +2,7 @@
 
 namespace chaoxi {
 namespace detail {
-template <int Size> const char *FixedBuffer<Size>::debugString() noexcept {
+template <std::size_t Size> const char *FixedBuffer<Size>::debugString() noexcept {
   *cur_ = '\0';
   return data_.data();
 }
