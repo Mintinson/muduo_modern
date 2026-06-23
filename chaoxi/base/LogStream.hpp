@@ -265,7 +265,13 @@ public:
         return *this;
     }
 
-    LogStream& operator<<(const char* str) noexcept
+    // for string literals and C-style strings, handle null pointer case
+    // use template + concepts to let compile-time raw string call
+    // `operator<<(const char (&str)[N])` overload
+    template <typename T>
+        requires(std::same_as<std::decay_t<T>, const char*> ||
+                 std::same_as<std::decay_t<T>, char*>)
+    LogStream& operator<<(T str) noexcept
     {
         if (str)
         {
