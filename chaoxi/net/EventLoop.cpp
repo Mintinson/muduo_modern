@@ -77,7 +77,7 @@ EventLoop::EventLoop()
     {
         t_loopInThisThread = this;  // 登记自己
     }
-    // wakeupChannel_->setReadCallback([this] { handleRead(); });
+    wakeupChannel_->setReadCallback([this](Timestamp) { handleRead(); });
     // we are always reading the wakeupfd
     wakeupChannel_->enableReading();  //  让 poll 监听 eventfd
 }

@@ -55,6 +55,11 @@ thread_local std::chrono::seconds t_lastSecond{};
 
 }  // namespace
 
+void Logger::setLogLevel(Logger::LogLevel level)
+{
+    g_logLevel = level;
+}
+
 void Logger::setOutput(OutputFunc out)
 {
     g_output = std::move(out);
