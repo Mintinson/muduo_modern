@@ -43,6 +43,12 @@ target_link_libraries(EventLoopThreadPool_test PRIVATE chaoxi::net GTest::gtest_
 add_executable(EPollPoller_test net/EPollPoller_test.cpp)
 target_link_libraries(EPollPoller_test PRIVATE chaoxi::net GTest::gtest_main)
 
+# add_executable(Async_demo base/Async_demo.cpp)
+# target_link_libraries(Async_demo PRIVATE chaoxi::base)
+
+add_executable(HTTP_test net/http/Http_test.cpp)
+target_link_libraries(HTTP_test PRIVATE chaoxi::net GTest::gtest_main)
+
 # Use CMake's built-in GoogleTest module to discover tests automatically
 include(GoogleTest)
 gtest_discover_tests(LogStream_test)
@@ -54,3 +60,4 @@ gtest_discover_tests(Buffer_test)
 gtest_discover_tests(TcpConnection_test)
 gtest_discover_tests(EventLoopThreadPool_test)
 gtest_discover_tests(EPollPoller_test)
+gtest_discover_tests(HTTP_test)

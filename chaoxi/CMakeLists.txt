@@ -71,7 +71,7 @@ endfunction()
 # TODO: 当项目完成的时候，将下面两句解开，方便一点
 # file(GLOB_RECURSE BASE_SOURCES CONFIGURE_DEPENDS "base/*.cpp")
 # add_library(chaoxi_base STATIC ${BASE_SOURCES})
-add_library(chaoxi_base STATIC 
+add_library(chaoxi_base STATIC
     base/Logging.cpp
     base/LogStream.cpp
     base/CurrentThread.cpp
@@ -85,8 +85,8 @@ chaoxi_target_enable_warnings(chaoxi_base)
 
 target_include_directories(chaoxi_base
     PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>
 )
 
 # 基础库可能用到了线程
@@ -100,7 +100,7 @@ target_link_libraries(chaoxi_base PUBLIC Threads::Threads stdc++exp)
 # ==========================
 # file(GLOB_RECURSE NET_SOURCES CONFIGURE_DEPENDS "net/*.cpp")
 # add_library(chaoxi_net STATIC ${NET_SOURCES})
-add_library(chaoxi_net STATIC 
+add_library(chaoxi_net STATIC
     net/Acceptor.cpp
     net/Buffer.cpp
     net/Channel.cpp
@@ -121,6 +121,10 @@ add_library(chaoxi_net STATIC
     net/EventLoop.cpp
     net/TimerQueue.cpp
 
+    net/http/HttpResponse.cpp
+    net/http/HttpServer.cpp
+    net/http/HttpContext.cpp
+
     # net/TimeQueue.cpp
 )
 add_library(chaoxi::net ALIAS chaoxi_net)
@@ -128,8 +132,8 @@ chaoxi_target_enable_warnings(chaoxi_net)
 
 target_include_directories(chaoxi_net
     PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>
 )
 
 # 网络层往往重度依赖基础层，将依赖通过 PUBLIC 透传

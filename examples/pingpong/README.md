@@ -78,5 +78,20 @@ python3 run_benchmark.py --server ./libevent_server --client ./libevent_client -
 python3 run_benchmark.py --server ./asio_server --client ./asio_client --tags asio
 ```
 
-## benchmark 结果表示
+## benchmark 不同参数的意义
+
+### Session 数
+
+Session 数量决定了Client 会向 Server 发起多少个独立的 TCP 连接。反映了服务器的并发调度能力与内存开销。
+
+* 当 Session 数较小的是偶，侧重测试单条连接的极限延迟（Latency）和吞吐量。此时 Server 的线程池（EventLoopThreadPool）压力很小，可能只有少数几个线程在干活。这能反映出网络库处理单一连接时，底层的 epoll 触发、系统调用（read/write）以及框架事件分发的最短路径开销。
+* 当 Session 数很大的时候，侧重测试服务器的并发承载力（Concurrency）、线程间负载均衡以及抗压能力。
+
+### BlockSize 
+
+blockSize 决定了 message 的长度。在 Ping-Pong 模型，这个大小也决定了后续每一次 read/write 的基础数据量。其反映了网络吞吐极限（带宽）与 CPU 处理开销的博弈。
+
+* 小包测试下，网络带宽通常是跑不满的，性能瓶颈会落在 CPU 上。每一次极小数据的收发，都伴随着完整的 TCP/IP 协议栈穿越、epoll 状态切换和系统内核态/用户态的上下文切换。
+* 大包测试下，CPU 的系统调用频率相对降低，性能瓶颈会向网卡带宽和内存带宽转移。这时候考验的是网络库中 Buffer 的设计策略（比如自动扩容机制、是否使用了分散/聚集 IO readv/writev 等）。
+
 
