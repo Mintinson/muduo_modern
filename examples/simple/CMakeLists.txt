@@ -2,6 +2,23 @@ add_executable(simple_echo echo/main.cpp echo/echo.cpp)
 # 使用现代 CMake 的命名空间方式链接，清晰指明来自 chaoxi 核心库
 target_link_libraries(simple_echo PRIVATE chaoxi::chaoxi)
 
+add_executable(simple_discard discard/discard.cpp discard/main.cpp)
+target_link_libraries(simple_discard PRIVATE chaoxi::chaoxi)
+
+add_executable(simple_daytime daytime/daytime.cpp daytime/main.cpp)
+target_link_libraries(simple_daytime PRIVATE chaoxi::chaoxi)
+
+add_executable(simple_time time/time.cpp time/main.cpp)
+target_link_libraries(simple_time PRIVATE chaoxi::chaoxi)
+
+add_executable(simple_time_client time/time_client.cpp)
+target_link_libraries(simple_time_client PRIVATE chaoxi::chaoxi)
+
+
+add_executable(simple_chargen chargen/chargen.cpp chargen/main.cpp)
+target_link_libraries(simple_chargen PRIVATE chaoxi::chaoxi)
+
+
 add_executable(demo demo.cpp)
 
 add_executable(s00_test1 s00/s00_test1.cpp)

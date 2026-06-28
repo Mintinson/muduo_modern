@@ -148,6 +148,11 @@ public:
         messageCallback_ = std::move(cb);
     }
 
+    void setWriteCompleteCallback(WriteCompleteCallback cb) noexcept
+    {
+        writeCompleteCallback_ = std::move(cb);
+    }
+
 private:
     ///
     /// @brief Acceptor 回调 —— 当新连接到达时被调用

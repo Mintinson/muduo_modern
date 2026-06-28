@@ -18,7 +18,7 @@ EchoServer::EchoServer(chaoxi::net::EventLoop* loop,
 
     server_.setMessageCallback(
         [this](const chaoxi::net::TcpConnectionPtr& conn,
-               chaoxi::net::Buffer buf, chaoxi::Timestamp time)
+               chaoxi::net::Buffer& buf, chaoxi::Timestamp time)
         { this->onMessage(conn, buf, time); });
 }
 
