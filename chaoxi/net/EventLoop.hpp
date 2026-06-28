@@ -1,5 +1,42 @@
 #pragma once
 
+///
+/// @file EventLoop.hpp
+/// @brief Reactor 事件循环 —— muduo 网络库的核心调度器
+///
+/// ╔══════════════════════════════════════════════════════════════════════╗
+/// ║                     EventLoop —— "谁有事？我来处理"                    ║
+/// ╠══════════════════════════════════════════════════════════════════════╣
+/// ║                                                                      ║
+/// ║  EventLoop 是整个 muduo Reactor 模式的"引擎":                        ║
+/// ║                                                                      ║
+/// ║    while (!quit_) {                                                  ║
+/// ║        activeChannels_ = poller_->poll(timeoutMs);  // ① 阻塞等事件  ║
+/// ║        for (Channel* ch : activeChannels_) {         // ② 分发事件   ║
+/// ║            ch->handleEvent(pollReturnTime);                           ║
+/// ║        }                                                             ║
+/// ║        doPendingFunctors();  // ③ 执行跨线程任务                      ║
+/// ║    }                                                                 ║
+/// ║                                                                      ║
+/// ║  ⚠️ 核心约束：每个线程至多拥有一个 EventLoop（one loop per thread）。 ║
+/// ║     ⚠️ 所有 I/O 操作必须在 EventLoop 所在线程执行。                   ║
+/// ║     ⚠️ 跨线程操作通过 runInLoop/queueInLoop + wakeupFd 实现。        ║
+/// ║                                                                      ║
+/// ║  架构图：                                                             ║
+/// ║                                                                      ║
+/// ║  ┌────────────────── EventLoop ──────────────────────┐                ║
+/// ║  │  threadId_    ← 绑定到线程                             │           ║
+/// ║  │  poller_      ← I/O 多路复用 (PollPoller/EPollPoller)  │           ║
+/// ║  │  timerQueue_  ← 定时器队列（内部用 timerfd）             │           ║
+/// ║  │  wakeupFd_    ← eventfd，跨线程唤醒通道                  │           ║
+/// ║  │  wakeupChannel_ ← wakeupFd_ 的 Channel 包装             │           ║
+/// ║  │  pendingFunctors_ ← 跨线程任务队列                       │           ║
+/// ║  │  activeChannels_ ← poll 返回的就绪 Channel 列表          │           ║
+/// ║  └────────────────────────────────────────────────────────┘                ║
+/// ║                                                                      ║
+/// ╚══════════════════════════════════════════════════════════════════════╝
+///
+
 #include "chaoxi/base/CurrentThread.hpp"
 #include "chaoxi/base/Timestamp.hpp"
 #include "chaoxi/net/Callbacks.hpp"
@@ -12,17 +49,29 @@
 #include <mutex>
 #include <vector>
 
-namespace chaoxi::net
-{
+namespace chaoxi::net {
 
 class Channel;
 class Poller;
 class TimerQueue;
 
-class EventLoop
-{
+///
+/// @brief Reactor 事件循环 —— 线程绑定的无限循环，驱动所有 I/O 事件
+///
+/// 每个 EventLoop 绑定一个线程（构造时记录 threadId_），
+/// 所有 public 方法（除 runInLoop/queueInLoop/quit 外）都必须在绑定线程调用。
+///
+/// 跨线程安全的方法：
+///   - quit()     : 可从任意线程调用，设置 quit_ 并 wakeup
+///   - runInLoop(): 如果在 EventLoop 线程则直接执行，否则 queueInLoop
+///   - queueInLoop(): 将任务添加到 pendingFunctors_ 并 wakeup
+///   - runAt / runAfter / runEvery / cancel: 通过 runInLoop 委托
+///
+class EventLoop {
 public:
+    /// move_only_function: C++23 可移动不可复制的回调，避免分配
     using Functor = std::move_only_function<void()>;
+
     EventLoop();
     ~EventLoop();  // force out-line dtor, for std::unique_ptr members.
     EventLoop(const EventLoop&) = delete;
@@ -31,125 +80,131 @@ public:
     EventLoop& operator=(EventLoop&&) = delete;
 
     ///
-    /// Loops forever.
+    /// @brief 进入事件循环（阻塞！直到 quit() 被调用）
     ///
-    /// Must be called in the same thread as creation of the object.
+    /// 循环体：poll 等事件 → 分发事件 → 执行 pending functors
+    /// 必须在 EventLoop 所在线程调用。
     ///
     void loop();
 
-    /// Quits loop.
     ///
-    /// This is not 100% thread safe, if you call through a raw pointer,
-    /// better to call through shared_ptr<EventLoop> for 100% safety.
+    /// @brief 退出事件循环
+    ///
+    /// 跨线程安全（内部调用 wakeup() 唤醒 poll）。
+    /// 注意：如果在其他线程通过裸指针调用，可能发生 use-after-free，
+    /// 推荐通过 shared_ptr<EventLoop> 调用。
+    ///
     void quit();
 
-    ///
-    /// Time when poll returns, usually means data arrival.
-    ///
-    [[nodiscard]] Timestamp pollReturnTime() const noexcept
-    {
+    /// poll 返回的时间戳，通常表示数据到达的时刻
+    [[nodiscard]] Timestamp pollReturnTime() const noexcept {
         return pollReturnTime_;
     }
 
+    /// 当前 loop 迭代次数
     [[nodiscard]] int64_t iteration() const noexcept { return iteration_; }
 
-    /// Runs callback immediately in the loop thread.
-    /// It wakes up the loop, and run the cb.
-    /// If in the same loop thread, cb is run within the function.
-    /// Safe to call from other threads.
+    ///
+    /// @brief 在 EventLoop 线程中执行回调
+    ///
+    /// - 如果在 EventLoop 线程：直接同步执行
+    /// - 如果在其他线程：通过 queueInLoop 编入队列 + wakeup
+    /// 跨线程安全。
+    ///
     void runInLoop(Functor cb);
-    /// Queues callback in the loop thread.
-    /// Runs after finish pooling.
-    /// Safe to call from other threads.
+
+    ///
+    /// @brief 将回调排入 EventLoop 的任务队列
+    ///
+    /// 在当前 poll 迭代的 doPendingFunctors 阶段执行。
+    /// 如果在其他线程调用，或正在执行 pending functors，会 wakeup poll。
+    /// 跨线程安全。
+    ///
     void queueInLoop(Functor cb);
 
+    /// 当前 pending 任务队列大小
     [[nodiscard]] size_t queueSize() const;
 
-    // timers
+    // ---- 定时器（跨线程安全，内部通过 runInLoop 实现） ----
 
-    ///
-    /// Runs callback at 'time'.
-    /// Safe to call from other threads.
-    ///
+    /// 在指定时间点执行回调
     TimerId runAt(Timestamp time, TimerCallback cb);
-    ///
-    /// Runs callback after @c delay seconds.
-    /// Safe to call from other threads.
-    ///
+    /// 延迟 delay 秒后执行回调
     TimerId runAfter(double delay, TimerCallback cb);
-    ///
-    /// Runs callback every @c interval seconds.
-    /// Safe to call from other threads.
-    ///
+    /// 每 interval 秒执行一次回调
     TimerId runEvery(double interval, TimerCallback cb);
-    ///
-    /// Cancels the timer.
-    /// Safe to call from other threads.
-    ///
+    /// 取消一个定时器
     void cancel(TimerId timerId);
 
-    // internal usage
+    // ---- 内部接口（由 Channel/Poller/TimerQueue 调用） ----
+
+    /// 通过 eventfd 唤醒 poll（用于跨线程通知）
     void wakeup();
+
+    /// 更新 Channel 在 Poller 中的事件监听
     void updateChannel(Channel* channel);
+    /// 从 Poller 中移除 Channel
     void removeChannel(Channel* channel);
+    /// 检查 Channel 是否在 Poller 中
     [[nodiscard]] bool hasChannel(Channel* channel);
 
-    // pid_t threadId() const { return threadId_; }
-    void assertInLoopThread()
-    {
-        if (!isInLoopThread())
-        {
+    /// 断言当前线程是 EventLoop 绑定线程，否则 abort
+    void assertInLoopThread() {
+        if (!isInLoopThread()) {
             abortNotInLoopThread();
         }
     }
 
-    /// @brief 判断当前线程是否是 EventLoop 所在线程
-    [[nodiscard]] bool isInLoopThread() const noexcept
-    {
+    /// 判断当前线程是否是 EventLoop 所在线程
+    [[nodiscard]] bool isInLoopThread() const noexcept {
         return threadId_ == CurrentThread::tid();
     }
 
-    // bool callingPendingFunctors() const { return callingPendingFunctors_; }
+    /// 当前是否正在处理 I/O 事件
     [[nodiscard]] bool eventHandling() const noexcept { return eventHandling_; }
 
+    // ---- 用户上下文（任意类型） ----
+
     void setContext(const std::any& context) { context_ = context; }
-
     [[nodiscard]] const std::any& getContext() const { return context_; }
-
     [[nodiscard]] std::any* getMutableContext() { return &context_; }
 
-    /// @brief 每个线程最多只能有一个 EventLoop
-    /// 对象，getEventLoopOfCurrentThread() 提供了访问接口
+    /// @brief 获取当前线程的 EventLoop 指针，没有则返回 nullptr
     [[nodiscard]] static EventLoop* getEventLoopOfCurrentThread();
 
 private:
     void abortNotInLoopThread();
-    void handleRead();  // waked up
+    void handleRead();  // waked up —— 读取 eventfd 的清零操作
     void doPendingFunctors();
 
     void printActiveChannels() const;  // DEBUG
     using ChannelList = std::vector<Channel*>;
 
-    bool looping_{false};
-    std::atomic<bool> quit_{false};
-    bool eventHandling_{false};           // atomic
-    bool callingPendingFunctors_{false};  // atomic
-    int64_t iteration_{0};
-    const int threadId_;
-    Timestamp pollReturnTime_;
-    std::unique_ptr<Poller> poller_;
-    std::unique_ptr<TimerQueue> timerQueue_;
-    int wakeupFd_;
-    // unlike in TimerQueue, which is an internal class,
-    // we don't expose Channel to client.
-    std::unique_ptr<Channel> wakeupChannel_;
-    std::any context_;
-    // scratch variables
-    ChannelList activeChannels_;
-    Channel* currentActiveChannel_{nullptr};
+    // ---- 状态标志 ----
+    bool looping_{false};                          ///< 是否正在 loop()
+    std::atomic<bool> quit_{false};                ///< 是否请求退出
+    bool eventHandling_{false};                    ///< 是否正在处理事件
+    bool callingPendingFunctors_{false};            ///< 是否正在执行 pending 任务
+    int64_t iteration_{0};                         ///< loop 迭代计数
+    const int threadId_;                           ///< 绑定的线程 ID（不可变）
 
-    mutable std::mutex mutex_;
-    std::vector<Functor> pendingFunctors_;  // @GuardedBy mutex_
+    // ---- 核心组件 ----
+    Timestamp pollReturnTime_;                                ///< 上次 poll 返回时间
+    std::unique_ptr<Poller> poller_;                          ///< I/O 多路复用
+    std::unique_ptr<TimerQueue> timerQueue_;                  ///< 定时器队列
+
+    // ---- 跨线程唤醒机制 ----
+    int wakeupFd_;                             ///< eventfd，用于跨线程唤醒 poll
+    std::unique_ptr<Channel> wakeupChannel_;   ///< eventfd 的 Channel 包装
+
+    // ---- 用户数据和中间状态 ----
+    std::any context_;                         ///< 用户自定义上下文
+    ChannelList activeChannels_;                ///< poll 返回的就绪 Channel 列表
+    Channel* currentActiveChannel_{nullptr};    ///< 当前正在分发的 Channel（用于断言）
+
+    // ---- 跨线程任务队列 ----
+    mutable std::mutex mutex_;                  ///< 保护 pendingFunctors_
+    std::vector<Functor> pendingFunctors_;      ///< @GuardedBy mutex_
 };
 
 }  // namespace chaoxi::net
