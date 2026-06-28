@@ -14,15 +14,24 @@ target_link_libraries(simple_time PRIVATE chaoxi::chaoxi)
 add_executable(simple_time_client time/time_client.cpp)
 target_link_libraries(simple_time_client PRIVATE chaoxi::chaoxi)
 
-
 add_executable(simple_chargen chargen/chargen.cpp chargen/main.cpp)
 target_link_libraries(simple_chargen PRIVATE chaoxi::chaoxi)
+
+add_executable(simple_all_in_one
+    all_in_one/all_in_one.cpp
+    echo/echo.cpp
+    discard/discard.cpp
+    daytime/daytime.cpp
+    time/time.cpp
+    chargen/chargen.cpp)
+target_link_libraries(simple_all_in_one PRIVATE chaoxi::chaoxi)
 
 
 add_executable(demo demo.cpp)
 
 add_executable(s00_test1 s00/s00_test1.cpp)
 target_link_libraries(s00_test1 PRIVATE chaoxi::chaoxi)
+
 
 # add_executable(s04_acceptor_1 s04/acceptor_1.cpp)
 # target_link_libraries(s04_acceptor_1 PRIVATE chaoxi::chaoxi)
