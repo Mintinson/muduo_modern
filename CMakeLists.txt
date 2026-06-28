@@ -32,4 +32,7 @@ endif()
 # === 4. 基准测试 (Benchmarks) ===
 if(CHAOXI_BUILD_BENCHMARKS)
     add_subdirectory(benchmark)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        message(WARNING "Benchmarking in Debug mode may produce inaccurate results. Consider using Release mode for benchmarking.")
+    endif()
 endif()
