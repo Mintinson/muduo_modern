@@ -1,0 +1,2 @@
+add_executable(file_transfer_download download.cpp)
+target_link_libraries(file_transfer_download PRIVATE chaoxi::chaoxi)

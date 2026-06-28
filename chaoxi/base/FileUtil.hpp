@@ -1,12 +1,43 @@
 #pragma once
 #include <array>
+#include <chrono>
 #include <cstddef>
+#include <expected>
+#include <filesystem>
 #include <string_view>
 
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/types.h>  // for off_t
+#include <unistd.h>
 
 namespace chaoxi::file_util
 {  // not thread safe
+
+struct FileMetaData
+{
+    size_t fileSize = 0;
+    std::chrono::system_clock::time_point modifyTime;
+    std::chrono::system_clock::time_point createTime;
+};
+
+struct ReadResult
+{
+    std::string content;
+    FileMetaData meta;
+};
+
+/**
+ * @brief
+ *
+ * @param filename
+ * @param maxSize
+ * @return std::expected<ReadResult, std::error_code>
+ */
+[[nodiscard]] std::expected<ReadResult, std::error_code> readSmallFile(
+    const std::filesystem::path& filename, size_t maxSize = 64 * 1024);
+
+
 
 class AppendFile
 {
