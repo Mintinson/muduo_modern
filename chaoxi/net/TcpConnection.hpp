@@ -47,6 +47,7 @@
 #include <concepts>
 #include <cstdint>
 #include <memory>
+#include <ranges>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -223,6 +224,15 @@ public:
     ///     4. 如果写完且设置了 writeCompleteCallback_ → 触发回调
     ///
     void send(std::string_view message);
+
+    template <std::ranges::contiguous_range R>
+        requires std::same_as<std::remove_cv_t<std::ranges::range_value_t<R>>,
+                              char>
+    void send(R&& message)
+    {
+        send(std::string_view{std::ranges::data(message),
+                              std::ranges::size(message)});
+    }
 
     /// @brief 发送二进制 span 数据
     template <typename T>
