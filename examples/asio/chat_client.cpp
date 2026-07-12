@@ -16,7 +16,7 @@
 
 #include <unistd.h>
 
-#include "examples/zeromq/codec.hpp"
+#include "codec.hpp"
 
 class ChatClient
 {
