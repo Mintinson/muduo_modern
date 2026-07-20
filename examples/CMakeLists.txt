@@ -11,3 +11,5 @@ add_subdirectory(zeromq)
 add_subdirectory(file_transfer)
 
 add_subdirectory(asio)
+
+add_subdirectory(netty)
