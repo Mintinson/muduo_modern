@@ -84,8 +84,8 @@ void clientMessageCallback(const chaoxi::net::TcpConnectionPtr&,
         int64_t their = message[1];
         int64_t back = receiveTime.time_since_epoch().count();
         int64_t mine = (back + send) / 2;
-        LOG_INFO << "round trip " << (back - send) / 1000.0 << "ms, clock error "
-                 << (their - mine) / 1000.0 << "ms";
+        LOG_INFO << "round trip " << (back - send) / 1000.0 << "us, clock error "
+                 << (their - mine) / 1000.0 << "us";
     }
 }
 

@@ -29,4 +29,4 @@
 doxygen Doxyfile
 ```
 
-并在生成的 `html` 目录下查看生成的 HTML 网页文档。
+并在生成的 `docs` 目录下查看生成的 HTML 网页文档。
