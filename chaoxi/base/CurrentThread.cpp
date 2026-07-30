@@ -55,4 +55,9 @@ void sleepUsec(int64_t usec) noexcept
     std::this_thread::sleep_for(std::chrono::microseconds(usec));
 }
 
+bool isMainThread() noexcept
+{
+    return tid() == static_cast<int>(::getpid());
+}
+
 }  // namespace chaoxi::CurrentThread

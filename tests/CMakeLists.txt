@@ -19,6 +19,15 @@ target_link_libraries(LogFile_test PRIVATE chaoxi::base GTest::gtest_main)
 add_executable(AsyncLogging_test base/AsyncLogging_test.cpp)
 target_link_libraries(AsyncLogging_test PRIVATE chaoxi::base GTest::gtest_main)
 
+add_executable(BlockingQueue_test base/BlockingQueue_test.cpp)
+target_link_libraries(BlockingQueue_test PRIVATE chaoxi::base GTest::gtest_main)
+
+# add_executable(BoundedBlockingQueue_test base/BoundedBlockingQueue_test.cpp)
+# target_link_libraries(BoundedBlockingQueue_test PRIVATE chaoxi::base GTest::gtest_main)
+
+add_executable(BaseUtilities_test base/BaseUtilities_test.cpp)
+target_link_libraries(BaseUtilities_test PRIVATE chaoxi::base GTest::gtest_main)
+
 add_executable(InetAddress_test net/InetAddress_test.cpp)
 target_link_libraries(InetAddress_test PRIVATE chaoxi::net GTest::gtest_main)
 
@@ -27,6 +36,12 @@ target_link_libraries(SocketOps_test PRIVATE chaoxi::net GTest::gtest_main)
 
 add_executable(Buffer_test net/Buffer_test.cpp)
 target_link_libraries(Buffer_test PRIVATE chaoxi::net GTest::gtest_main)
+
+add_executable(BufferIO_test net/BufferIO_test.cpp)
+target_link_libraries(BufferIO_test PRIVATE chaoxi::net GTest::gtest_main)
+
+add_executable(Timer_test net/Timer_test.cpp)
+target_link_libraries(Timer_test PRIVATE chaoxi::net GTest::gtest_main)
 
 add_executable(EventLoop_test net/EventLoop_test.cpp)
 target_link_libraries(EventLoop_test PRIVATE chaoxi::net)
@@ -54,9 +69,14 @@ include(GoogleTest)
 gtest_discover_tests(LogStream_test)
 # gtest_discover_tests(LogFile_test)
 gtest_discover_tests(AsyncLogging_test)
+gtest_discover_tests(BlockingQueue_test)
+# gtest_discover_tests(BoundedBlockingQueue_test)
+gtest_discover_tests(BaseUtilities_test)
 gtest_discover_tests(SocketOps_test)
 gtest_discover_tests(InetAddress_test)
 gtest_discover_tests(Buffer_test)
+gtest_discover_tests(BufferIO_test)
+gtest_discover_tests(Timer_test)
 gtest_discover_tests(TcpConnection_test)
 gtest_discover_tests(EventLoopThreadPool_test)
 gtest_discover_tests(EPollPoller_test)

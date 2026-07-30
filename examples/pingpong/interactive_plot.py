@@ -12,6 +12,7 @@ import plotly.express as px
 
 data_path = {
     "chaoxi": "results/bench_20260626_171046_chaoxi.csv",
+    "chaoxi_clang": "results/bench_20260726_151550_chaoxi_clang.csv",
     "muduo": "results/bench_20260625_204423_muduo.csv",
     "asio": "results/bench_20260626_192117_asio.csv",
 }

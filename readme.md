@@ -59,6 +59,39 @@ target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
 
 编译完成后，可根据 `examples/` 或 `tests/` 中对应的目标程序运行。
 
+### 单元测试
+
+所有 GoogleTest 用例都已注册到 CTest，可并行运行：
+
+```bash
+ctest --test-dir build --output-on-failure -j
+```
+
+测试覆盖日志、队列、文件与线程工具、Buffer、定时器、地址与 Socket、
+EventLoop/EPoll、TCP 连接和 HTTP 协议处理。其中并发队列测试会校验多生产者、
+多消费者场景下的无丢失、无重复和对象发布完整性。
+
+### 性能基准
+
+性能数据应使用 Release 构建：
+
+```bash
+cmake -S . -B build-release \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCHAOXI_BUILD_EXAMPLES=OFF \
+  -DCHAOXI_BUILD_TESTS=OFF \
+  -DCHAOXI_BUILD_BENCHMARKS=ON
+cmake --build build-release -j
+
+./build-release/benchmark/QueueComparison_bench
+./build-release/benchmark/Buffer_bench
+./build-release/benchmark/Http_bench
+```
+
+`QueueComparison_bench` 在相同负载下对比互斥锁队列和有界无锁队列；
+`Buffer_bench` 覆盖追加、扩容、整数编解码与 CRLF 扫描；
+`Http_bench` 覆盖完整请求解析和不同 body 大小的响应序列化。
+
 ## 文档生成
 
 本仓库使用 Doxygen 注释风格。若系统已安装 `doxygen` 和 `graphviz`，可以执行：
