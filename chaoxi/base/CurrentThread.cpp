@@ -4,14 +4,22 @@
 #include <stacktrace>
 #include <thread>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/syscall.h>
 #include <unistd.h>
+#endif
 
 namespace chaoxi::detail
 {
-[[nodiscard]] pid_t gettid()
+[[nodiscard]] int gettid()
 {
+#ifdef _WIN32
+    return static_cast<int>(::GetCurrentThreadId());
+#else
     return static_cast<pid_t>(::syscall(SYS_gettid));
+#endif
 }
 };  // namespace chaoxi::detail
 

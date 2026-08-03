@@ -1,5 +1,6 @@
 
 #include "chaoxi/base/Logging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 #include "chaoxi/net/Callbacks.hpp"
 #include "chaoxi/net/EventLoop.hpp"
 #include "chaoxi/net/InetAddress.hpp"
@@ -11,7 +12,6 @@
 #include <memory>
 #include <print>
 
-#include <unistd.h>
 
 void onHighWaterMark(const chaoxi::net::TcpConnectionPtr& conn, size_t len)
 {
@@ -83,7 +83,7 @@ void onWriteComplete(const chaoxi::net::TcpConnectionPtr& conn)
 
 int main(int argc, char* argv[])
 {
-    LOG_INFO << "pid= " << getpid();
+    LOG_INFO << "pid= " << chaoxi::process_info::pid();
     if (argc > 1)
     {
         g_file = argv[1];

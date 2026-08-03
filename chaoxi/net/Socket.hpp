@@ -1,5 +1,7 @@
 #pragma once
 
+#include "chaoxi/net/Platform.hpp"
+
 #include <cstddef>
 struct tcp_info;
 
@@ -10,7 +12,7 @@ class InetAddress;
 class Socket
 {
 public:
-    using SocketType = int;
+    using SocketType = SocketHandle;
 
     explicit Socket(SocketType fd) : sockfd_(fd) {}
 
@@ -32,7 +34,7 @@ public:
     /// a descriptor for the accepted socket, which has been
     /// set to non-blocking and close-on-exec. *peeraddr is assigned.
     /// On error, -1 is returned, and *peeraddr is untouched.
-    [[nodiscard]] int accept(InetAddress* peeraddr);
+    [[nodiscard]] SocketType accept(InetAddress* peeraddr);
 
     void shutdownWrite();
 

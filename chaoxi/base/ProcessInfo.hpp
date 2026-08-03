@@ -1,7 +1,11 @@
 #pragma once
 #include <string>
 
+#ifdef _WIN32
+using pid_t = int;
+#else
 #include <sys/types.h>
+#endif
 
 namespace chaoxi::process_info
 {

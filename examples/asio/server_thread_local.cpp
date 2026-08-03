@@ -2,6 +2,7 @@
 
 // 使用 多线程 TcpServer，并用 mutex 来保护共享数据
 #include "chaoxi/base/Logging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 #include "chaoxi/base/ThreadLocalSingleton.hpp"
 #include "chaoxi/base/Timestamp.hpp"
 #include "chaoxi/net/Callbacks.hpp"
@@ -17,7 +18,6 @@
 #include <unordered_set>
 #include <utility>
 
-#include <unistd.h>
 
 #include "codec.hpp"
 
@@ -111,7 +111,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-    LOG_INFO << "pid = " << getpid();
+    LOG_INFO << "pid = " << chaoxi::process_info::pid();
     if (argc > 1)
     {
         chaoxi::net::EventLoop loop;

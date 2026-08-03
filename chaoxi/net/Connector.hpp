@@ -86,7 +86,7 @@ class Connector : public std::enable_shared_from_this<Connector>
 {
 public:
     /// 连接成功后的回调：void(int sockfd)，sockfd 的所有权转移给调用者
-    using NewConnectionCallback = std::function<void(int sockfd)>;
+    using NewConnectionCallback = std::function<void(SocketHandle sockfd)>;
 
     Connector(EventLoop* loop, const InetAddress& serverAddr);
     ~Connector();
@@ -147,11 +147,11 @@ private:
     void startInLoop();
     void stopInLoop();
     void connect();               ///< 实际执行 socket() + 非阻塞 connect()
-    void connecting(int sockfd);  ///< connect 后的处理（创建 Channel 等写事件）
+    void connecting(SocketHandle sockfd);  ///< connect 后的处理（创建 Channel 等写事件）
     void handleWrite();           ///< connect 完成时的回调
     void handleError();           ///< socket 错误回调
-    void retry(int sockfd);       ///< 关闭 sockfd，安排重试
-    int removeAndResetChannel();  ///< 从 Poller 移除 Channel，返回 fd
+    void retry(SocketHandle sockfd);       ///< 关闭 sockfd，安排重试
+    SocketHandle removeAndResetChannel();  ///< 从 Poller 移除 Channel，返回 fd
     void resetChannel();          ///< 重置 channel_ unique_ptr
 
     EventLoop* loop_;

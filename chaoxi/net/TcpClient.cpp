@@ -29,7 +29,7 @@ TcpClient::TcpClient(EventLoop* loop,
     , name_(std::move(nameArg))
 {
     // 连接成功 → 把 sockfd 包装成 TcpConnection
-    connector_->setNewConnectionCallback([this](int sockfd)
+    connector_->setNewConnectionCallback([this](SocketHandle sockfd)
                                          { newConnection(sockfd); });
     FLOG_INFO("TcpClient::TcpClient[{}] - connector {}", name_,
               (void*)connector_.get());
@@ -149,7 +149,7 @@ void TcpClient::stop()
 ///   5. 存入 connection_ 成员
 ///   6. 调用 connectEstablished() 完成激活
 ///
-void TcpClient::newConnection(int sockfd)
+void TcpClient::newConnection(SocketHandle sockfd)
 {
     loop_->assertInLoopThread();
 

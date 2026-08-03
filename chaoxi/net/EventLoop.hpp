@@ -41,6 +41,7 @@
 #include "chaoxi/base/Timestamp.hpp"
 #include "chaoxi/net/Callbacks.hpp"
 #include "chaoxi/net/TimerId.hpp"
+#include "chaoxi/net/Platform.hpp"
 
 #include <any>
 #include <atomic>
@@ -194,7 +195,7 @@ private:
     std::unique_ptr<TimerQueue> timerQueue_;                  ///< 定时器队列
 
     // ---- 跨线程唤醒机制 ----
-    int wakeupFd_;                             ///< eventfd，用于跨线程唤醒 poll
+    SocketHandle wakeupFd_;                    ///< eventfd 或 Windows loopback socket
     std::unique_ptr<Channel> wakeupChannel_;   ///< eventfd 的 Channel 包装
 
     // ---- 用户数据和中间状态 ----

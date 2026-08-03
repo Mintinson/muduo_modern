@@ -160,7 +160,7 @@ private:
     /// 由 Acceptor::handleRead → accept → newConnectionCallback_ 调用。
     /// 线程：acceptor 所在 EventLoop 线程。
     ///
-    void newConnection(int sockfd, const InetAddress& peerAddr);
+    void newConnection(SocketHandle sockfd, const InetAddress& peerAddr);
 
     /// 连接断开时由 TcpConnection::closeCallback_ 回调（跨线程安全版本）
     void removeConnection(const TcpConnectionPtr& conn);

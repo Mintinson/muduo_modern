@@ -116,7 +116,7 @@ public:
 
 private:
     /// Connector 成功 connect 后的回调（在 EventLoop 线程执行）
-    void newConnection(int sockfd);
+    void newConnection(SocketHandle sockfd);
 
     /// 连接关闭时的回调（在 EventLoop 线程执行）
     void removeConnection(const TcpConnectionPtr& conn);

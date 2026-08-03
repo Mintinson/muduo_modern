@@ -1,4 +1,5 @@
 #include "chaoxi/base/Logging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 #include "chaoxi/net/EventLoop.hpp"
 #include "chaoxi/net/InetAddress.hpp"
 #include "chaoxi/net/TcpServer.hpp"
@@ -7,7 +8,6 @@
 #include <cstdint>
 #include <print>
 
-#include <unistd.h>
 
 int numThreads = 0;
 
@@ -88,7 +88,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-    LOG_INFO << "pid = " << getpid()
+    LOG_INFO << "pid = " << chaoxi::process_info::pid()
              << ", tid = " << chaoxi::CurrentThread::tid();
     if (argc > 1)
     {

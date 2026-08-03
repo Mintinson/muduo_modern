@@ -8,9 +8,11 @@
 #include <cstring>
 #include <string_view>
 
+#ifndef _WIN32
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#endif
 
 namespace chaoxi::net
 {
@@ -18,8 +20,8 @@ static_assert(sizeof(InetAddress) == sizeof(sockaddr_in6));
 static_assert(offsetof(sockaddr_in, sin_family) == 0);
 static_assert(offsetof(sockaddr_in6, sin6_family) == 0);
 
-static constexpr in_addr_t kInaddrAny = INADDR_ANY;
-static constexpr in_addr_t kInaddrLoopback = INADDR_LOOPBACK;
+static constexpr std::uint32_t kInaddrAny = INADDR_ANY;
+static constexpr std::uint32_t kInaddrLoopback = INADDR_LOOPBACK;
 
 InetAddress::InetAddress(std::uint16_t portArg, bool loopbackOnly, bool ipv6)
 {
@@ -37,7 +39,7 @@ InetAddress::InetAddress(std::uint16_t portArg, bool loopbackOnly, bool ipv6)
     {
         std::memset(&addr_, 0, sizeof(addr_));
         addr_.sin_family = AF_INET;
-        in_addr_t ip = loopbackOnly ? kInaddrLoopback : kInaddrAny;
+        std::uint32_t ip = loopbackOnly ? kInaddrLoopback : kInaddrAny;
         addr_.sin_addr.s_addr = sockets::hton32(ip);
         addr_.sin_port = sockets::hton16(portArg);
     }
@@ -85,6 +87,7 @@ uint32_t InetAddress::ipv4NetEndian() const noexcept
 
 std::optional<InetAddress> InetAddress::resolve(std::string_view hostname)
 {
+    ensureNetworkInitialized();
     // 保证 \0 结尾
     std::string host_str{hostname};
 

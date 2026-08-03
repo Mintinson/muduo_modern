@@ -6,10 +6,6 @@
 #include <filesystem>
 #include <string_view>
 
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>  // for off_t
-#include <unistd.h>
 
 namespace chaoxi::file_util
 {  // not thread safe

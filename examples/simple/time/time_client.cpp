@@ -1,4 +1,5 @@
 #include "chaoxi/base/Logging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 #include "chaoxi/base/Timestamp.hpp"
 #include "chaoxi/net/Endian.hpp"
 #include "chaoxi/net/EventLoop.hpp"
@@ -9,7 +10,6 @@
 #include <cstddef>
 #include <print>
 
-#include <unistd.h>
 
 using namespace chaoxi;
 
@@ -76,7 +76,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-    LOG_INFO << "pid = " << getpid();
+    LOG_INFO << "pid = " << chaoxi::process_info::pid();
     if (argc > 1)
     {
         net::EventLoop loop;

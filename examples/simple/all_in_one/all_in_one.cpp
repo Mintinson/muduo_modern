@@ -1,8 +1,8 @@
 #include "chaoxi/base/CurrentThread.hpp"
 #include "chaoxi/base/Logging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 #include "chaoxi/net/EventLoop.hpp"
 
-#include <unistd.h>
 
 #include "examples/simple/chargen/chargen.hpp"
 #include "examples/simple/daytime/daytime.hpp"
@@ -15,7 +15,7 @@ using namespace chaoxi;
 
 int main()
 {
-    LOG_INFO << "pid = " << getpid() << ", tid = " << CurrentThread::tid();
+    LOG_INFO << "pid = " << process_info::pid() << ", tid = " << CurrentThread::tid();
 
     EventLoop loop;
 

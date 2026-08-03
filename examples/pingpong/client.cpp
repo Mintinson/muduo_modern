@@ -1,4 +1,5 @@
 #include "chaoxi/base/Logging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 #include "chaoxi/net/EventLoop.hpp"
 #include "chaoxi/net/EventLoopThreadPool.hpp"
 #include "chaoxi/net/InetAddress.hpp"
@@ -8,7 +9,6 @@
 #include <memory>
 
 #include <stdio.h>
-#include <unistd.h>
 
 using namespace chaoxi;
 using namespace chaoxi::net;
@@ -187,7 +187,7 @@ int main(int argc, char* argv[])
     }
     else
     {
-        LOG_INFO << "pid = " << getpid() << ", tid = " << CurrentThread::tid();
+        LOG_INFO << "pid = " << process_info::pid() << ", tid = " << CurrentThread::tid();
         Logger::setLogLevel(Logger::WARN);
 
         const char* ip = argv[1];

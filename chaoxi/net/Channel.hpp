@@ -40,6 +40,7 @@
 ///
 
 #include "chaoxi/base/Timestamp.hpp"
+#include "chaoxi/net/Platform.hpp"
 
 #include <functional>
 #include <memory>
@@ -68,7 +69,7 @@ public:
     using ReadEventCallback = std::function<void(Timestamp receiveTime)>;
     using EventCallback = std::function<void()>;
 
-    Channel(EventLoop* loop, int fd) : loop_(loop), fd_(fd) {}
+    Channel(EventLoop* loop, SocketHandle fd) : loop_(loop), fd_(fd) {}
 
     ~Channel();
     Channel(const Channel&) = delete;
@@ -114,7 +115,7 @@ public:
 
     // ---- 访问器 ----
 
-    [[nodiscard]] int fd() const noexcept { return fd_; }
+    [[nodiscard]] SocketHandle fd() const noexcept { return fd_; }
 
     /// 当前关注的事件类型
     [[nodiscard]] int events() const noexcept { return events_; }
@@ -188,7 +189,7 @@ private:
     void handleEventWithGuard(Timestamp receiveTime) noexcept;
 
     EventLoop* loop_;    ///< 所属的 EventLoop（非空）
-    const int fd_;       ///< 监控的文件描述符
+    const SocketHandle fd_;       ///< 监控的文件描述符
 
     int events_{};       ///< 关注的事件（POLLIN / POLLOUT / ...）
     int revents_{};      ///< 实际发生的事件（由 Poller 填充）

@@ -20,8 +20,10 @@
 #include <memory>
 #include <string_view>
 
+#ifndef _WIN32
 #include <sys/types.h>
 #include <unistd.h>
+#endif
 
 namespace chaoxi::net
 {
@@ -94,7 +96,7 @@ void defaultMessageCallback(const TcpConnectionPtr&, Buffer& buf, Timestamp)
 ///
 TcpConnection::TcpConnection(EventLoop* loop,
                              std::string nameArg,
-                             int sockfd,
+                             SocketHandle sockfd,
                              const InetAddress& localAddr,
                              const InetAddress& peerAddr)
     : loop_(loop)
@@ -242,7 +244,7 @@ void TcpConnection::handleWrite() noexcept
     if (channel_->isWriting())
     {
         auto data = outputBuffer_.readableSpan();
-        ssize_t n = sockets::write(channel_->fd(), data.data(), data.size());
+        SignedSize n = sockets::write(channel_->fd(), data.data(), data.size());
         if (n > 0)
         {
             outputBuffer_.retrieve(static_cast<size_t>(n));
@@ -370,7 +372,7 @@ void TcpConnection::send(Buffer&& buf)
 void TcpConnection::sendInLoop(std::string_view message)
 {
     loop_->assertInLoopThread();
-    ssize_t nwrote = 0;
+    SignedSize nwrote = 0;
     size_t remaining = message.size();
     bool faultError = false;
 

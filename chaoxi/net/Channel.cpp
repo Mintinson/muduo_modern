@@ -10,14 +10,21 @@
 
 #include <cassert>
 
+#ifdef _WIN32
+#include "chaoxi/net/Platform.hpp"
+#ifndef POLLRDHUP
+#define POLLRDHUP 0
+#endif
+#else
 #include <poll.h>
+#endif
 
 namespace chaoxi::net {
 
 namespace {
 
 /// 将 poll 事件标志转换为可读字符串（调试用）
-std::string eventsToString(int fd, int ev) noexcept {
+std::string eventsToString(SocketHandle fd, int ev) noexcept {
     std::ostringstream oss;
     oss << fd << ": ";
     if (ev & POLLIN)     oss << "IN ";

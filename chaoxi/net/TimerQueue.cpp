@@ -9,13 +9,18 @@
 #include <cstring>
 #include <format>
 
+#include <algorithm>
+#include <climits>
+#ifndef _WIN32
 #include <sys/timerfd.h>
 #include <unistd.h>
+#endif
 
 namespace chaoxi::net
 {
 namespace detail
 {
+#ifndef _WIN32
 int createTimerfd()
 {
     int timerfd = ::timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
@@ -66,23 +71,30 @@ void readTimerfd(int timerfd, Timestamp now)
             "TimerQueue::handleRead() reads {} bytes instead of 8", n);
     }
 }
+#endif
 
 }  // namespace detail
 
 TimerQueue::TimerQueue(EventLoop* loop)
     : loop_(loop)
+#ifndef _WIN32
     , timerfd_(detail::createTimerfd())
     , timerfdChannel_(loop, timerfd_)
+#endif
 {
+#ifndef _WIN32
     timerfdChannel_.setReadCallback([this](Timestamp) { handleRead(); });
     timerfdChannel_.enableReading();
+#endif
 }
 
 TimerQueue::~TimerQueue()
 {
+#ifndef _WIN32
     timerfdChannel_.disableAll();
     timerfdChannel_.remove();
     ::close(timerfd_);
+#endif
     // 由于 timers_ 里面装的是 unique_ptr，
     // 这里不需要再手写循环 delete timer.second 了。资源会自动释放。
 }
@@ -112,7 +124,11 @@ void TimerQueue::addTimerInLoop(std::unique_ptr<Timer> timer)
 
     if (earliestChanged)
     {
+#ifndef _WIN32
         detail::resetTimerfd(timerfd_, raw->expiration());
+#else
+        (void)raw;
+#endif
     }
 }
 
@@ -144,8 +160,9 @@ void TimerQueue::handleRead()
 {
     loop_->assertInLoopThread();
     Timestamp now = Timestamp::clock::now();
-    detail::readTimerfd(timerfd_,
-                        now);  // ① 把 timerfd 里的"到期次数"读掉（清零）
+#ifndef _WIN32
+    detail::readTimerfd(timerfd_, now);
+#endif
 
     std::vector<std::unique_ptr<Timer>> expired =
         getExpired(now);  // ② 找出所有到期的 Timer
@@ -208,8 +225,40 @@ void TimerQueue::reset(std::vector<std::unique_ptr<Timer>>& expired,
 
     if (nextExpire.time_since_epoch().count() > 0)
     {
+#ifndef _WIN32
         detail::resetTimerfd(timerfd_, nextExpire);
+#endif
     }
+}
+
+int TimerQueue::pollTimeoutMs(int defaultTimeoutMs) const noexcept
+{
+#ifdef _WIN32
+    if (timers_.empty())
+    {
+        return defaultTimeoutMs;
+    }
+    const auto remaining = timers_.begin()->first - Timestamp::clock::now();
+    const auto micros = std::chrono::duration_cast<std::chrono::microseconds>(remaining).count();
+    if (micros <= 0)
+    {
+        return 0;
+    }
+    const auto roundedMs = (micros + 999) / 1000;
+    return static_cast<int>(std::min<int64_t>(roundedMs, defaultTimeoutMs));
+#else
+    return defaultTimeoutMs;
+#endif
+}
+
+void TimerQueue::processExpired()
+{
+#ifdef _WIN32
+    if (!timers_.empty() && timers_.begin()->first <= Timestamp::clock::now())
+    {
+        handleRead();
+    }
+#endif
 }
 
 bool TimerQueue::insert(std::unique_ptr<Timer> timer)

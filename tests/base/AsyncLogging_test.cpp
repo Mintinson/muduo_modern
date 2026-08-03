@@ -4,6 +4,7 @@
 ///
 
 #include "chaoxi/base/AsyncLogging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -13,7 +14,6 @@
 #include <thread>
 
 #include <gtest/gtest.h>
-#include <unistd.h>
 
 using namespace chaoxi;
 
@@ -23,7 +23,7 @@ protected:
     void SetUp() override
     {
         // 使用唯一前缀, 方便测试后清理
-        basename_ = "async_logging_test" + std::to_string(getpid());
+        basename_ = "async_logging_test" + std::to_string(process_info::pid());
         // 清理可能残留的日志文件 (在当前工作目录)
         cleanupLogFiles();
     }

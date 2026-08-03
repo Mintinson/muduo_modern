@@ -50,7 +50,7 @@ TcpServer::TcpServer(EventLoop* loop,
 {
     // 当有新连接被 accept 时，Acceptor 会调用此 lambda
     acceptor_->setNewConnectionCallback(
-        [this](int sockfd, const InetAddress& peerAddr)
+        [this](SocketHandle sockfd, const InetAddress& peerAddr)
         { newConnection(sockfd, peerAddr); });
 }
 
@@ -142,7 +142,7 @@ void TcpServer::start()
 ///   - connectEstablished 通过 runInLoop 编入 io 线程执行
 ///   - connections_ 的修改在 acceptor 线程，读取也在 acceptor 线程
 ///
-void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr)
+void TcpServer::newConnection(SocketHandle sockfd, const InetAddress& peerAddr)
 {
     loop_->assertInLoopThread();
 
