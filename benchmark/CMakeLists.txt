@@ -35,5 +35,14 @@ target_link_libraries(AsyncLogging_bench PRIVATE chaoxi::base benchmark::benchma
 add_executable(BlockingQueue_bench base/BlockingQueue_bench.cpp)
 target_link_libraries(BlockingQueue_bench PRIVATE chaoxi::base benchmark::benchmark_main)
 
-add_executable(BoundedBlockingQueue_bench base/BoundedBlockingQueue_bench.cpp)
-target_link_libraries(BoundedBlockingQueue_bench PRIVATE chaoxi::base benchmark::benchmark_main)
+# add_executable(BoundedBlockingQueue_bench base/BoundedBlockingQueue_bench.cpp)
+# target_link_libraries(BoundedBlockingQueue_bench PRIVATE chaoxi::base benchmark::benchmark_main)
+
+add_executable(QueueComparison_bench base/QueueComparison_bench.cpp)
+target_link_libraries(QueueComparison_bench PRIVATE chaoxi::base benchmark::benchmark_main)
+
+add_executable(Buffer_bench net/Buffer_bench.cpp)
+target_link_libraries(Buffer_bench PRIVATE chaoxi::net benchmark::benchmark_main)
+
+add_executable(Http_bench net/Http_bench.cpp)
+target_link_libraries(Http_bench PRIVATE chaoxi::net benchmark::benchmark_main)

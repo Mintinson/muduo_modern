@@ -19,6 +19,15 @@ target_link_libraries(LogFile_test PRIVATE chaoxi::base GTest::gtest_main)
 add_executable(AsyncLogging_test base/AsyncLogging_test.cpp)
 target_link_libraries(AsyncLogging_test PRIVATE chaoxi::base GTest::gtest_main)
 
+add_executable(BlockingQueue_test base/BlockingQueue_test.cpp)
+target_link_libraries(BlockingQueue_test PRIVATE chaoxi::base GTest::gtest_main)
+
+# add_executable(BoundedBlockingQueue_test base/BoundedBlockingQueue_test.cpp)
+# target_link_libraries(BoundedBlockingQueue_test PRIVATE chaoxi::base GTest::gtest_main)
+
+add_executable(BaseUtilities_test base/BaseUtilities_test.cpp)
+target_link_libraries(BaseUtilities_test PRIVATE chaoxi::base GTest::gtest_main)
+
 add_executable(InetAddress_test net/InetAddress_test.cpp)
 target_link_libraries(InetAddress_test PRIVATE chaoxi::net GTest::gtest_main)
 

@@ -2,6 +2,7 @@
 #include <chrono>
 #include <cstddef>
 #include <new>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -16,13 +17,20 @@ class BoundedBlockingQueue
     // static_assert(Capacity >= 2, "Capacity must be at least 2");
 
 public:
-    static constexpr std::size_t kCacheLineSize =
-        std::hardware_destructive_interference_size;
+    // Keep layout stable across compiler flags because this value is part of
+    // Cell's public template ABI. 64 bytes matches mainstream x86-64 cache
+    // lines and the default interference size used by GCC and Clang.
+    static constexpr std::size_t kCacheLineSize = 64;
 
     explicit BoundedBlockingQueue(std::size_t maxSize)
         : buffer_(maxSize)
         , maxSize_(maxSize)
     {
+        if (maxSize == 0)
+        {
+            throw std::invalid_argument(
+                "BoundedBlockingQueue capacity must be greater than zero");
+        }
         for (size_t i = 0; i < maxSize; ++i)
         {
             buffer_[i].sequence.store(i, std::memory_order_relaxed);

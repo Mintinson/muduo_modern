@@ -93,7 +93,7 @@ TcpServer::~TcpServer()
 ///
 void TcpServer::setThreadNum(unsigned numThreads)
 {
-    assert(0 <= numThreads);
+    // assert(0 <= numThreads);
     threadPool_->setThreadNum(numThreads);
 }
 
