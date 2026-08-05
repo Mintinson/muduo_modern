@@ -16,8 +16,11 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 option(CHAOXI_BUILD_EXAMPLES "Build chaoxi examples" ON)
 option(CHAOXI_BUILD_TESTS "Build chaoxi tests" ON)
 option(CHAOXI_BUILD_BENCHMARKS "Build chaoxi benchmarks" ON)
+option(CHAOXI_BUILD_V2 "Build the coroutine-based chaoxi v2 API" OFF)
 option(CHAOXI_ENABLE_STRICT_WARNINGS "Enable strict compiler warnings for chaoxi targets" ON)
 option(CHAOXI_WARNINGS_AS_ERRORS "Treat warnings as errors for chaoxi targets" ON)
+
+message(STATUS "chaoxi coroutine v2: ${CHAOXI_BUILD_V2}")
 
 # === 1. 核心库 ===
 add_subdirectory(chaoxi)

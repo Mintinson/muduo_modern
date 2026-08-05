@@ -83,6 +83,20 @@ target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
 
 编译完成后，可根据 `examples/` 或 `tests/` 中对应的目标程序运行。
 
+## 协程 v2
+
+项目提供可选的 `chaoxi::v2` 无栈协程接口，默认开启，不影响原有 callback
+版本。关闭方式：
+
+```bash
+cmake -S . -B build-v2 -DCHAOXI_BUILD_V2=OFF
+cmake --build build-v2 -j
+```
+
+协程版包含 `Task<T>`、EventLoop 调度、异步定时器、AsyncFd、AsyncSocket、
+AsyncAcceptor 和协程 TcpServer。API、示例与生命周期约束见
+[`chaoxi/v2/README.md`](chaoxi/v2/README.md)。
+
 ### 单元测试
 
 所有 GoogleTest 用例都已注册到 CTest，可并行运行：
