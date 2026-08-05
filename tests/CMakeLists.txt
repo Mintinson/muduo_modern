@@ -10,6 +10,10 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+if(CHAOXI_BUILD_V2)
+    add_subdirectory(v2 v2)
+endif()
+
 add_executable(LogStream_test base/LogStream_test.cpp)
 target_link_libraries(LogStream_test PRIVATE chaoxi::base GTest::gtest_main)
 

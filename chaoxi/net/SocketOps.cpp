@@ -15,6 +15,7 @@
 #include <format>
 
 #ifndef _WIN32
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
@@ -115,7 +116,7 @@ const struct sockaddr_in6* sockaddr_in6_cast(const struct sockaddr* addr)
 /// 现代 Linux（2.6.27+）支持 SOCK_NONBLOCK | SOCK_CLOEXEC 作为 socket() 标志，
 /// 避免了传统方式中先 socket() 再 fcntl(F_SETFL) 的两次调用与竞态条件。
 ///
-SocketHandle createNonblockingOrDie(sa_family_t family)
+SocketHandle createNonblocking(sa_family_t family) noexcept
 {
 #ifdef _WIN32
     ensureNetworkInitialized();
@@ -123,30 +124,70 @@ SocketHandle createNonblockingOrDie(sa_family_t family)
     if (sockfd == kInvalidSocket)
     {
         errno = socketErrorToErrno(lastSocketError());
-        LOG_SYSFATAL << "sockets::createNonblockingOrDie";
+        return kInvalidSocket;
     }
-    u_long nonblocking = 1;
-    if (::ioctlsocket(sockfd, FIONBIO, &nonblocking) == SOCKET_ERROR)
+    if (setNonblocking(sockfd) < 0)
     {
-        errno = socketErrorToErrno(lastSocketError());
+        const int savedErrno = errno;
         ::closesocket(sockfd);
-        LOG_SYSFATAL << "sockets::createNonblockingOrDie ioctlsocket";
+        errno = savedErrno;
+        return kInvalidSocket;
     }
 #elif defined(VALGRIND)
     int sockfd = ::socket(family, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd < 0)
     {
-        LOG_SYSFATAL << "sockets::createNonblockingOrDie";
+        return kInvalidSocket;
     }
-    setNonBlockAndCloseOnExec(sockfd);
+    if (setNonblocking(sockfd) < 0)
+    {
+        const int savedErrno = errno;
+        ::close(sockfd);
+        errno = savedErrno;
+        return kInvalidSocket;
+    }
 #else
     int sockfd = ::socket(family, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
                           IPPROTO_TCP);
-    if (sockfd < 0)
+#endif
+    return sockfd;
+}
+
+int setNonblocking(SocketHandle sockfd) noexcept
+{
+#ifdef _WIN32
+    u_long enabled = 1;
+    if (::ioctlsocket(sockfd, FIONBIO, &enabled) == SOCKET_ERROR)
+    {
+        errno = socketErrorToErrno(lastSocketError());
+        return -1;
+    }
+    return 0;
+#else
+    const int statusFlags = ::fcntl(sockfd, F_GETFL, 0);
+    if (statusFlags < 0 ||
+        ::fcntl(sockfd, F_SETFL, statusFlags | O_NONBLOCK) < 0)
+    {
+        return -1;
+    }
+
+    const int descriptorFlags = ::fcntl(sockfd, F_GETFD, 0);
+    if (descriptorFlags < 0 ||
+        ::fcntl(sockfd, F_SETFD, descriptorFlags | FD_CLOEXEC) < 0)
+    {
+        return -1;
+    }
+    return 0;
+#endif
+}
+
+SocketHandle createNonblockingOrDie(sa_family_t family)
+{
+    const SocketHandle sockfd = createNonblocking(family);
+    if (sockfd == kInvalidSocket)
     {
         LOG_SYSFATAL << "sockets::createNonblockingOrDie";
     }
-#endif
     return sockfd;
 }
 
@@ -164,6 +205,73 @@ int connect(SocketHandle sockfd, const struct sockaddr* addr)
     {
         const int error = lastSocketError();
         errno = error == WSAEWOULDBLOCK ? EINPROGRESS : socketErrorToErrno(error);
+        return -1;
+    }
+#endif
+    return result;
+}
+
+int bind(SocketHandle sockfd, const struct sockaddr* addr) noexcept
+{
+    const SocketLength length = static_cast<SocketLength>(
+        addr->sa_family == AF_INET6 ? sizeof(sockaddr_in6)
+                                    : sizeof(sockaddr_in));
+    const int result = ::bind(sockfd, addr, length);
+#ifdef _WIN32
+    if (result == SOCKET_ERROR)
+    {
+        errno = socketErrorToErrno(lastSocketError());
+        return -1;
+    }
+#endif
+    return result;
+}
+
+int listen(SocketHandle sockfd) noexcept
+{
+    const int result = ::listen(sockfd, SOMAXCONN);
+#ifdef _WIN32
+    if (result == SOCKET_ERROR)
+    {
+        errno = socketErrorToErrno(lastSocketError());
+        return -1;
+    }
+#endif
+    return result;
+}
+
+int setSocketOption(SocketHandle sockfd,
+                    int level,
+                    int option,
+                    int value) noexcept
+{
+    const int result = ::setsockopt(
+        sockfd, level, option, reinterpret_cast<const char*>(&value),
+        static_cast<SocketLength>(sizeof(value)));
+#ifdef _WIN32
+    if (result == SOCKET_ERROR)
+    {
+        errno = socketErrorToErrno(lastSocketError());
+        return -1;
+    }
+#endif
+    return result;
+}
+
+int shutdownWrite(SocketHandle sockfd) noexcept
+{
+    const int result = ::shutdown(
+        sockfd,
+#ifdef _WIN32
+        SD_SEND
+#else
+        SHUT_WR
+#endif
+    );
+#ifdef _WIN32
+    if (result == SOCKET_ERROR)
+    {
+        errno = socketErrorToErrno(lastSocketError());
         return -1;
     }
 #endif
@@ -286,12 +394,8 @@ void toIp(char* buf, size_t size, const struct sockaddr* addr)
 /// @brief 开始监听，backlog = SOMAXCONN（系统上限）
 void listenOrDie(SocketHandle sockfd)
 {
-    int ret = ::listen(sockfd, SOMAXCONN);
-    if (ret < 0)
+    if (listen(sockfd) < 0)
     {
-#ifdef _WIN32
-        errno = socketErrorToErrno(lastSocketError());
-#endif
         LOG_SYSFATAL << "sockets::listenOrDie";
     }
 }
@@ -299,16 +403,8 @@ void listenOrDie(SocketHandle sockfd)
 /// @brief bind 到指定地址，失败 fatal
 void bindOrDie(SocketHandle sockfd, const struct sockaddr* addr)
 {
-    // 统一使用 sockaddr_in6 的大小以兼容 IPv4 和 IPv6
-    int ret = ::bind(sockfd, addr,
-                     static_cast<SocketLength>(addr->sa_family == AF_INET6
-                                                   ? sizeof(struct sockaddr_in6)
-                                                   : sizeof(struct sockaddr_in)));
-    if (ret < 0)
+    if (bind(sockfd, addr) < 0)
     {
-#ifdef _WIN32
-        errno = socketErrorToErrno(lastSocketError());
-#endif
         LOG_SYSFATAL << "sockets::bindOrDie";
     }
 }
@@ -326,12 +422,23 @@ SocketHandle accept(SocketHandle sockfd, struct sockaddr_in6* addr)
     SocketHandle connfd = ::accept(sockfd, sockaddr_cast(addr), &addrlen);
     if (connfd != kInvalidSocket)
     {
-        u_long nonblocking = 1;
-        (void)::ioctlsocket(connfd, FIONBIO, &nonblocking);
+        if (setNonblocking(connfd) < 0)
+        {
+            const int savedErrno = errno;
+            ::closesocket(connfd);
+            errno = savedErrno;
+            return kInvalidSocket;
+        }
     }
 #elif defined(VALGRIND) || defined(NO_ACCEPT4)
     SocketHandle connfd = ::accept(sockfd, sockaddr_cast(addr), &addrlen);
-    setNonBlockAndCloseOnExec(connfd);
+    if (connfd != kInvalidSocket && setNonblocking(connfd) < 0)
+    {
+        const int savedErrno = errno;
+        ::close(connfd);
+        errno = savedErrno;
+        return kInvalidSocket;
+    }
 #else
     SocketHandle connfd = ::accept4(sockfd, sockaddr_cast(addr), &addrlen,
                            SOCK_NONBLOCK | SOCK_CLOEXEC);

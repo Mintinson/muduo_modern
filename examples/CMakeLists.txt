@@ -15,3 +15,7 @@ add_subdirectory(asio)
 add_subdirectory(netty)
 
 add_subdirectory(roundtrip)
+
+add_subdirectory(hub)
+
+add_executable(example_test test.cpp)

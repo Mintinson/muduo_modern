@@ -95,6 +95,9 @@ target_link_libraries(chaoxi_base PUBLIC Threads::Threads)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_link_libraries(chaoxi_base PUBLIC stdc++exp)
 endif()
+if(WIN32)
+    target_link_libraries(chaoxi_base PUBLIC advapi32)
+endif()
 
 
 
@@ -178,3 +181,8 @@ endif()
 add_library(chaoxi INTERFACE)
 add_library(chaoxi::chaoxi ALIAS chaoxi)
 target_link_libraries(chaoxi INTERFACE chaoxi::base chaoxi::net)
+
+if(CHAOXI_BUILD_V2)
+    add_subdirectory(v2)
+    target_link_libraries(chaoxi INTERFACE chaoxi::v2)
+endif()

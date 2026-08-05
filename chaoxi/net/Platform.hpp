@@ -63,6 +63,7 @@ inline int socketErrorToErrno(int error) noexcept
 }
 }  // namespace chaoxi::net
 #else
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 

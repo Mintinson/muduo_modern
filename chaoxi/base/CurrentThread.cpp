@@ -25,6 +25,10 @@ namespace chaoxi::detail
 
 namespace chaoxi::CurrentThread
 {
+namespace
+{
+const int mainThreadId = detail::gettid();
+}
 
 thread_local int t_cachedTid = 0;
 thread_local char t_tidString[32];
@@ -51,6 +55,11 @@ void cacheTid()
         t_tidStringLength =
             snprintf(t_tidString, sizeof t_tidString, "%5d ", t_cachedTid);
     }
+}
+
+bool isMainThread() noexcept
+{
+    return tid() == mainThreadId;
 }
 
 void sleepUsec(int64_t usec) noexcept
