@@ -15,7 +15,7 @@ class Channel;
 class Poller
 {
 public:
-    using FDType = int;
+    using FDType = SocketHandle;
     using ChannelList = std::vector<Channel*>;
 
     Poller(EventLoop* loop);

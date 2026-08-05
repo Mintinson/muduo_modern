@@ -4,14 +4,22 @@
 #include <stacktrace>
 #include <thread>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/syscall.h>
 #include <unistd.h>
+#endif
 
 namespace chaoxi::detail
 {
-[[nodiscard]] pid_t gettid()
+[[nodiscard]] int gettid()
 {
+#ifdef _WIN32
+    return static_cast<int>(::GetCurrentThreadId());
+#else
     return static_cast<pid_t>(::syscall(SYS_gettid));
+#endif
 }
 };  // namespace chaoxi::detail
 
@@ -53,11 +61,6 @@ void sleepUsec(int64_t usec) noexcept
     //     static_cast<long>(usec % Timestamp::kMicroSecondsPerSecond * 1000);
     // ::nanosleep(&ts, NULL);
     std::this_thread::sleep_for(std::chrono::microseconds(usec));
-}
-
-bool isMainThread() noexcept
-{
-    return tid() == static_cast<int>(::getpid());
 }
 
 }  // namespace chaoxi::CurrentThread

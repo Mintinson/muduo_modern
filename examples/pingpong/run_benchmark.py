@@ -12,10 +12,10 @@ Output:
     results/bench_YYYYMMDD_HHMMSS.csv           # Raw data
     results/bench_YYYYMMDD_HHMMSS_summary.txt   # Summary statistics
 """
-
 import argparse
 import csv
 import multiprocessing
+import os
 import signal
 import subprocess
 import sys
@@ -23,11 +23,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 BUILD_DIR = Path(__file__).resolve().parent.parent.parent / "build"
 SERVER_BIN = BUILD_DIR / "examples" / "pingpong" / "pingpong_server"
 CLIENT_BIN = BUILD_DIR / "examples" / "pingpong" / "pingpong_client"
+
+if os.name == "nt":  # Windows
+    SERVER_BIN = SERVER_BIN.with_suffix(".exe")
+    CLIENT_BIN = CLIENT_BIN.with_suffix(".exe")
 RESULTS_DIR = SCRIPT_DIR / "results"
 HOST = "127.0.0.1"
 BASE_PORT = 9981

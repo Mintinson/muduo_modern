@@ -49,6 +49,7 @@
 #include <functional>
 #include <memory>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace chaoxi::net

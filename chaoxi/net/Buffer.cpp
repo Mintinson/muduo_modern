@@ -2,15 +2,30 @@
 
 #include <array>
 #include <cerrno>
+#include <climits>
 #include <cstddef>
 
+#ifndef _WIN32
 #include <sys/uio.h>
+#endif
 
 namespace chaoxi::net
 {
 
-ssize_t Buffer::readFd(int fd, int* savedErrno)
+SignedSize Buffer::readFd(SocketHandle fd, int* savedErrno)
 {
+#ifdef _WIN32
+    const std::size_t writable = writableBytes();
+    const int capacity = static_cast<int>(std::min<std::size_t>(writable, INT_MAX));
+    const int n = ::recv(fd, beginWrite(), capacity, 0);
+    if (n == SOCKET_ERROR)
+    {
+        *savedErrno = socketErrorToErrno(lastSocketError());
+        return -1;
+    }
+    writerIndex_ += static_cast<std::size_t>(n);
+    return n;
+#else
     // char extrabuf[65536];
     std::array<char, 65536> extrabuf;
     struct iovec vec[2];
@@ -42,6 +57,7 @@ ssize_t Buffer::readFd(int fd, int* savedErrno)
     }
 
     return n;
+#endif
 }
 
 }  // namespace chaoxi::net

@@ -17,7 +17,10 @@
 #include <format>
 #include <mutex>
 
+#ifndef _WIN32
 #include <sys/eventfd.h>
+#include <unistd.h>
+#endif
 
 #define SECTION 2
 
@@ -44,19 +47,48 @@ constexpr int kPollTimeMs = 10000;
 ///   - EFD_NONBLOCK: 非阻塞（读空计数器返回 EAGAIN）
 ///   - EFD_CLOEXEC:  exec 时自动关闭
 ///
-int createEventfd() {
+SocketHandle createEventfd() {
+#ifdef _WIN32
+    ensureNetworkInitialized();
+    SocketHandle socket = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (socket == kInvalidSocket) {
+        LOG_SYSFATAL << "Failed to create wakeup socket";
+    }
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    address.sin_port = 0;
+    if (::bind(socket, reinterpret_cast<const sockaddr*>(&address), sizeof address) == SOCKET_ERROR) {
+        sockets::close(socket);
+        LOG_SYSFATAL << "Failed to bind wakeup socket";
+    }
+    int length = sizeof address;
+    if (::getsockname(socket, reinterpret_cast<sockaddr*>(&address), &length) == SOCKET_ERROR ||
+        ::connect(socket, reinterpret_cast<const sockaddr*>(&address), length) == SOCKET_ERROR) {
+        sockets::close(socket);
+        LOG_SYSFATAL << "Failed to connect wakeup socket";
+    }
+    u_long nonblocking = 1;
+    (void)::ioctlsocket(socket, FIONBIO, &nonblocking);
+    return socket;
+#else
     int evtfd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
     if (evtfd < 0) {
         LOG_SYSERR << "Failed in eventfd";
         std::abort();
     }
     return evtfd;
+#endif
 }
 
 /// 忽略 SIGPIPE —— 向已关闭的 socket 写会触发 SIGPIPE，
 /// 网络库中应该通过 EPIPE errno 处理，而不是让进程终止。
 struct IgnoreSigPipe {
-    IgnoreSigPipe() { std::signal(SIGPIPE, SIG_IGN); }
+    IgnoreSigPipe() {
+#ifndef _WIN32
+        std::signal(SIGPIPE, SIG_IGN);
+#endif
+    }
 };
 
 IgnoreSigPipe initObj;
@@ -118,7 +150,7 @@ EventLoop::~EventLoop() {
     // 先关闭 Channel 再 close fd
     wakeupChannel_->disableAll();
     wakeupChannel_->remove();
-    ::close(wakeupFd_);
+    sockets::close(wakeupFd_);
     // 释放当前线程的注册
     t_loopInThisThread = nullptr;
 }
@@ -165,7 +197,7 @@ void EventLoop::loop() {
         activeChannels_.clear();
 
         // ② 阻塞等待 I/O 事件（或超时 10 秒）
-        pollReturnTime_ = poller_->poll(kPollTimeMs, &activeChannels_);
+        pollReturnTime_ = poller_->poll(timerQueue_->pollTimeoutMs(kPollTimeMs), &activeChannels_);
         ++iteration_;
 
         if (Logger::logLevel() <= Logger::LogLevel::TRACE) {
@@ -181,6 +213,8 @@ void EventLoop::loop() {
         }
         currentActiveChannel_ = nullptr;
         eventHandling_ = false;
+
+        timerQueue_->processExpired();
 
         // ④ 执行排队的跨线程任务
         doPendingFunctors();
@@ -322,7 +356,7 @@ void EventLoop::abortNotInLoopThread() {
 ///
 void EventLoop::wakeup() {
     uint64_t one = 1;
-    ssize_t n = sockets::write(wakeupFd_, &one, sizeof one);
+    SignedSize n = sockets::write(wakeupFd_, &one, sizeof one);
     if (n != sizeof one) {
         LOG_ERROR << std::format(
             "EventLoop::wakeup() writes {} bytes instead of 8", n);
@@ -337,7 +371,7 @@ void EventLoop::wakeup() {
 ///
 void EventLoop::handleRead() {
     uint64_t one = 1;
-    ssize_t n = sockets::read(wakeupFd_, &one, sizeof one);
+    SignedSize n = sockets::read(wakeupFd_, &one, sizeof one);
     if (n != sizeof one) {
         LOG_ERROR << std::format(
             "EventLoop::handleRead() reads {} bytes instead of 8", n);

@@ -3,7 +3,6 @@
 #include "chaoxi/net/EventLoop.hpp"
 
 #include <stdio.h>
-#include <unistd.h>
 
 using namespace chaoxi;
 using namespace chaoxi::net;

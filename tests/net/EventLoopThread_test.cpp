@@ -1,15 +1,15 @@
 #include "chaoxi/net/EventLoop.hpp"
 #include "chaoxi/net/EventLoopThread.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 
 #include <print>
 
-#include <unistd.h>
 
 using namespace chaoxi;
 using namespace chaoxi::net;
 
 void printInfo(EventLoop* p = nullptr) {
-    std::println("print: pid={}, tid={}, loop={}", ::getpid(),
+    std::println("print: pid={}, tid={}, loop={}", process_info::pid(),
                  CurrentThread::tid(), static_cast<void*>(p));
 }
 

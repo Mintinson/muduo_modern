@@ -36,6 +36,9 @@ public:
 
     void cancel(TimerId timerId);
 
+    [[nodiscard]] int pollTimeoutMs(int defaultTimeoutMs) const noexcept;
+    void processExpired();
+
 private:
     // 支持透明比较 (Heterogeneous Lookup) 的比较器
     struct TimerCompare
@@ -96,8 +99,10 @@ private:
     bool insert(std::unique_ptr<Timer> timer);
 
     EventLoop* loop_;
+#ifndef _WIN32
     const int timerfd_;
     Channel timerfdChannel_;  // 来观察timerfd_上的readable事件
+#endif
 
     TimerList timers_;
     ActiveTimerSet activeTimers_;

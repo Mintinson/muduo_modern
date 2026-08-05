@@ -8,11 +8,13 @@
 #include <memory>
 #include <print>
 
+#ifndef _WIN32
 #include <sys/socket.h>
+#endif
 
 chaoxi::net::EventLoop* g_loop;
 
-void connectCallback(int sockfd)
+void connectCallback(chaoxi::net::SocketHandle sockfd)
 {
     std::cout << "Connected to sockfd " << sockfd << std::endl;
     auto peerAddress = chaoxi::net::sockets::getPeerAddr(sockfd);

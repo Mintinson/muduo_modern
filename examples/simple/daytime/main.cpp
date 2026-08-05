@@ -1,9 +1,8 @@
 #include "chaoxi/base/Logging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 #include "chaoxi/net/EventLoop.hpp"
 
 #include <string>
-
-#include <unistd.h>
 
 #include "daytime.hpp"
 
@@ -14,7 +13,7 @@ int main(int argc, char** argv)
     {
         port = std::stoul(argv[1]);
     }
-    LOG_INFO << "pid = " << getpid();
+    LOG_INFO << "pid = " << chaoxi::process_info::pid();
     chaoxi::net::EventLoop loop;
     chaoxi::net::InetAddress listenAddr(port);
     DayTimeServer server(&loop, listenAddr);

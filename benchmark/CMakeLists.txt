@@ -24,8 +24,10 @@ target_link_libraries(LogStream_bench PRIVATE chaoxi::base benchmark::benchmark_
 add_executable(Logging_bench base/Logging_bench.cpp)
 target_link_libraries(Logging_bench PRIVATE chaoxi::base benchmark::benchmark_main)
 
-add_executable(LogFile_bench base/LogFile_bench.cpp)
-target_link_libraries(LogFile_bench PRIVATE chaoxi::base benchmark::benchmark_main)
+if(NOT WIN32)
+  add_executable(LogFile_bench base/LogFile_bench.cpp)
+  target_link_libraries(LogFile_bench PRIVATE chaoxi::base benchmark::benchmark_main)
+endif()
 
 add_executable(AsyncLogging_bench base/AsyncLogging_bench.cpp)
 target_link_libraries(AsyncLogging_bench PRIVATE chaoxi::base benchmark::benchmark_main)

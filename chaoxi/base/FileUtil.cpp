@@ -6,10 +6,20 @@
 #include <string>
 #include <string_view>
 
+#ifdef _WIN32
+#include <share.h>
+#endif
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 namespace chaoxi::file_util
 {
 namespace
 {
+#ifndef _WIN32
 class UniqueFileDescription
 {
 public:
@@ -61,12 +71,44 @@ public:
 private:
     int fd_;
 };
+#endif
 
 }  // namespace
 
 [[nodiscard]] std::expected<ReadResult, std::error_code> readSmallFile(
     const std::filesystem::path& filename, size_t maxSize)
 {
+#ifdef _WIN32
+    std::error_code ec;
+    if (std::filesystem::is_directory(filename, ec))
+    {
+        return std::unexpected(std::make_error_code(std::errc::is_a_directory));
+    }
+    const auto size = std::filesystem::file_size(filename, ec);
+    if (ec)
+    {
+        return std::unexpected(ec);
+    }
+    FILE* file = nullptr;
+    if (::_wfopen_s(&file, filename.c_str(), L"rb") != 0 || file == nullptr)
+    {
+        return std::unexpected(std::error_code(errno, std::system_category()));
+    }
+    ReadResult result;
+    result.meta.fileSize = static_cast<std::size_t>(size);
+    const auto writeTime = std::filesystem::last_write_time(filename, ec);
+    if (!ec)
+    {
+        result.meta.modifyTime = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+            writeTime - decltype(writeTime)::clock::now() + std::chrono::system_clock::now());
+        result.meta.createTime = result.meta.modifyTime;
+    }
+    const auto toRead = std::min(maxSize, result.meta.fileSize);
+    result.content.resize(toRead);
+    result.content.resize(::fread(result.content.data(), 1, toRead, file));
+    (void)::fclose(file);
+    return result;
+#else
     UniqueFileDescription fd(::open(filename.c_str(), O_RDONLY | O_CLOEXEC));
     if (!fd.valid())
     {
@@ -160,13 +202,21 @@ private:
     }
 
     return result;
+#endif
 }
 
 AppendFile::AppendFile(std::string_view filename)
+#ifdef _WIN32
+    : fp_(nullptr)
+#else
     : fp_(::fopen(filename.data(), "ae"))  // 'e' for O_CLOEXEC
+#endif
 {
+#ifdef _WIN32
+    fp_ = ::_fsopen(std::string(filename).c_str(), "ab", _SH_DENYNO);
+#endif
     assert(fp_);
-    ::setbuffer(fp_, buffer_.data(), sizeof buffer_);
+    (void)::setvbuf(fp_, buffer_.data(), _IOFBF, sizeof buffer_);
     // posix_fadvise POSIX_FADV_DONTNEED ?
 }
 
@@ -210,6 +260,10 @@ size_t AppendFile::write(std::string_view logline)
 {
     // #undef fwrite_unlocked
     // thread-unsafe
+#ifdef _WIN32
+    return ::fwrite(logline.data(), 1, logline.size(), fp_);
+#else
     return ::fwrite_unlocked(logline.data(), 1, logline.size(), fp_);
+#endif
 }
 };  // namespace chaoxi::file_util

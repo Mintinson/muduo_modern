@@ -8,8 +8,10 @@
 #include <cassert>
 
 #include <errno.h>
+#ifndef _WIN32
 #include <fcntl.h>
 #include <unistd.h>
+#endif
 
 namespace chaoxi::net
 {
@@ -20,9 +22,17 @@ Acceptor::Acceptor(EventLoop* loop,
     , acceptSocket_(sockets::createNonblockingOrDie(listenAddr.family()))
     , acceptChannel_(loop_, acceptSocket_.fd())
     , listening_(false)
-    , idleFd_(::open("/dev/null", O_RDONLY | O_CLOEXEC))
+    , idleFd_(
+#ifdef _WIN32
+          -1
+#else
+          ::open("/dev/null", O_RDONLY | O_CLOEXEC)
+#endif
+      )
 {
+#ifndef _WIN32
     assert(idleFd_ >= 0);
+#endif
     acceptSocket_.setReuseAddr(true);
     acceptSocket_.setReusePort(reuseport);
     acceptSocket_.bindAddress(listenAddr);
@@ -33,7 +43,9 @@ Acceptor::~Acceptor()
 {
     acceptChannel_.disableAll();
     acceptChannel_.remove();
+#ifndef _WIN32
     ::close(idleFd_);
+#endif
 }
 
 void Acceptor::listen()
@@ -50,9 +62,9 @@ void Acceptor::handleRead()
 
     InetAddress peerAddr;
 
-    int condfd = acceptSocket_.accept(&peerAddr);
+    SocketHandle condfd = acceptSocket_.accept(&peerAddr);
 
-    if (condfd >= 0)
+    if (condfd != kInvalidSocket)
     {
         if (newConnectionCallback_)
         {
@@ -71,10 +83,12 @@ void Acceptor::handleRead()
         // By Marc Lehmann, author of libev.
         if (errno == EMFILE)
         {
+#ifndef _WIN32
             ::close(idleFd_);
             idleFd_ = ::accept(acceptSocket_.fd(), NULL, NULL);
             ::close(idleFd_);
             idleFd_ = ::open("/dev/null", O_RDONLY | O_CLOEXEC);
+#endif
         }
     }
 }

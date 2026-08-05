@@ -91,7 +91,10 @@ target_include_directories(chaoxi_base
 
 # 基础库可能用到了线程
 find_package(Threads REQUIRED)
-target_link_libraries(chaoxi_base PUBLIC Threads::Threads stdc++exp)
+target_link_libraries(chaoxi_base PUBLIC Threads::Threads)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(chaoxi_base PUBLIC stdc++exp)
+endif()
 
 
 
@@ -100,7 +103,7 @@ target_link_libraries(chaoxi_base PUBLIC Threads::Threads stdc++exp)
 # ==========================
 # file(GLOB_RECURSE NET_SOURCES CONFIGURE_DEPENDS "net/*.cpp")
 # add_library(chaoxi_net STATIC ${NET_SOURCES})
-add_library(chaoxi_net STATIC
+set(CHAOXI_NET_SOURCES
     net/Acceptor.cpp
     net/Buffer.cpp
     net/Channel.cpp
@@ -110,7 +113,6 @@ add_library(chaoxi_net STATIC
     net/InetAddress.cpp
     net/Poller.cpp
     net/poller/PollPoller.cpp
-    net/poller/EPollPoller.cpp
     net/poller/DefaultPoller.cpp
     net/Socket.cpp
     net/SocketOps.cpp
@@ -127,6 +129,28 @@ add_library(chaoxi_net STATIC
 
     # net/TimeQueue.cpp
 )
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    list(APPEND CHAOXI_NET_SOURCES net/poller/EPollPoller.cpp)
+endif()
+# if(WIN32 AND CHAOXI_WINDOWS_USE_WEPOLL)
+#     # wepoll is a C library. Enable C only for this Windows backend so Linux
+#     # users keep the project's original C++-compiler-only requirement.
+#     enable_language(C)
+#     include(FetchContent)
+#     FetchContent_Declare(
+#         wepoll
+#         URL https://github.com/piscisaureus/wepoll/archive/refs/tags/v1.5.8.tar.gz
+#         URL_HASH SHA256=3f68e5f2f5a35c2eb641b73a6d0e605668ea66e5bd9ff1e170660e3b2a60c74e
+#         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+#     )
+#     FetchContent_MakeAvailable(wepoll)
+
+#     add_library(chaoxi_wepoll STATIC ${wepoll_SOURCE_DIR}/wepoll.c)
+#     target_include_directories(chaoxi_wepoll PUBLIC ${wepoll_SOURCE_DIR})
+#     target_link_libraries(chaoxi_wepoll PUBLIC ws2_32)
+#     list(APPEND CHAOXI_NET_SOURCES net/poller/WEPollPoller.cpp)
+# endif()
+add_library(chaoxi_net STATIC ${CHAOXI_NET_SOURCES})
 add_library(chaoxi::net ALIAS chaoxi_net)
 chaoxi_target_enable_warnings(chaoxi_net)
 
@@ -138,6 +162,13 @@ target_include_directories(chaoxi_net
 
 # 网络层往往重度依赖基础层，将依赖通过 PUBLIC 透传
 target_link_libraries(chaoxi_net PUBLIC chaoxi::base)
+if(WIN32)
+    target_link_libraries(chaoxi_net PUBLIC ws2_32)
+    # if(CHAOXI_WINDOWS_USE_WEPOLL)
+    #     target_link_libraries(chaoxi_net PRIVATE chaoxi_wepoll)
+    #     target_compile_definitions(chaoxi_net PUBLIC CHAOXI_HAS_WEPOLL=1)
+    # endif()
+endif()
 
 
 # ==========================

@@ -4,7 +4,12 @@
 
 #include <vector>
 
+#ifdef _WIN32
+using ChaoxiPollFd = WSAPOLLFD;
+#else
 struct pollfd;
+using ChaoxiPollFd = struct pollfd;
+#endif
 
 namespace chaoxi::net
 {
@@ -32,7 +37,7 @@ private:
      */
     void fillActiveChannels(int numEvents,
                             ChannelList* activeChannels) const noexcept;
-    using PollFdList = std::vector<struct pollfd>;
+    using PollFdList = std::vector<ChaoxiPollFd>;
     PollFdList pollfds_;
 };
 }  // namespace chaoxi::net

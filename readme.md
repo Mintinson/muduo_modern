@@ -35,6 +35,30 @@ cmake -S ..
 cmake --build .
 ```
 
+### Windows（Visual Studio）
+
+Windows 使用 Winsock、基于 AFD 的 `wepoll` 事件分发、loopback socket 跨线程唤醒，以及由事件循环超时驱动的定时器 fallback。Linux 仍默认使用原有的 epoll/eventfd/timerfd 实现。
+
+在 PowerShell 7 中先加载 Visual Studio x64 开发环境，再配置和构建：
+
+```powershell
+Import-Module "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+Enter-VsDevShell -VsInstallPath "C:\Program Files\Microsoft Visual Studio\18\Community" -SkipAutomaticLocation -DevCmdArguments "-arch=amd64"
+
+cmake -S . -B build -G Ninja
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+Windows 默认构建可移植的 examples。直接演示 `timerfd`、`epoll/pipe2`、Unix `socketpair` 等 Linux 内核接口的目标仅在 Linux 上生成。
+
+Windows 默认通过 `FetchContent` 获取固定版本 v1.5.8 的
+[`wepoll`](https://github.com/piscisaureus/wepoll)。它提供与 epoll 接近的
+ADD/MOD/DEL/WAIT 就绪通知模型，因此现有的 `EventLoop`、`Poller` 和
+`Channel` 结构不需要改变。可通过 `-DCHAOXI_WINDOWS_USE_WEPOLL=OFF`
+切回兼容性的 `select` 后端。IOCP 属于完成通知模型；若后续引入，更适合作为
+独立 Proactor 后端实现异步 accept/read/write，而不是伪装成 Reactor。
+
 ## 作为第三方库使用
 
 如果你在一个新项目里使用它，推荐把这个仓库作为子目录接入，例如放在 `third_party/chaoxi/`，然后在你自己的 `CMakeLists.txt` 里这样写：

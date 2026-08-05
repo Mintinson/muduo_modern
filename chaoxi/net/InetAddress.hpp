@@ -1,12 +1,12 @@
 #pragma once
 
+#include "chaoxi/net/Platform.hpp"
+
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
 
-#include <netinet/in.h>
-#include <sys/socket.h>
 
 namespace chaoxi::net
 {

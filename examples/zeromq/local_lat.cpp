@@ -1,11 +1,11 @@
 #include "chaoxi/base/Logging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 #include "chaoxi/net/EventLoop.hpp"
 #include "chaoxi/net/InetAddress.hpp"
 #include "chaoxi/net/TcpServer.hpp"
 
 #include <print>
 
-#include <unistd.h>
 
 #include "codec.hpp"
 
@@ -35,7 +35,8 @@ int main(int argc, char* argv[])
         g_tcpNoDelay = (argc > 2) ? atoi(argv[2]) : true;
         int threadCount = argc > 3 ? atoi(argv[3]) : 0;
 
-        LOG_INFO << "pid = " << getpid() << ", listen port = " << port;
+        LOG_INFO << "pid = " << chaoxi::process_info::pid()
+                 << ", listen port = " << port;
 
         chaoxi::net::EventLoop loop;
         chaoxi::net::InetAddress listenAddr(port);

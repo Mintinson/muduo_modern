@@ -13,7 +13,7 @@ namespace chaoxi::net
 class Acceptor
 {
 public:
-    using SocketType = int;
+    using SocketType = SocketHandle;
     using NewConnectionCallback =
         std::function<void(SocketType, const chaoxi::net::InetAddress&)>;
 

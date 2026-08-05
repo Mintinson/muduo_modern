@@ -1,5 +1,7 @@
 #pragma once
 
+#include "chaoxi/net/Platform.hpp"
+
 ///
 /// @file Buffer.hpp
 /// @brief 网络缓冲区 —— 支持前置空间、自动扩容、readv 零拷贝读取
@@ -27,6 +29,7 @@
 ///
 
 #include <cassert>
+#include <bit>
 #include <concepts>
 #include <cstddef>
 #include <cstring>
@@ -333,7 +336,7 @@ public:
     // 这么做利用了临时栈上空间 14
     // ，避免每个连接的初始Buffer过大造成的内存浪费，也避免反复调用read()的系统开销
     /// @return read 返回的字节数，失败返回 -1 并设置 *savedErrno
-    ssize_t readFd(int fd, int* savedErrno);
+    SignedSize readFd(SocketHandle fd, int* savedErrno);
 
 private:
     [[nodiscard]] char* begin() noexcept { return &*buffer_.begin(); }

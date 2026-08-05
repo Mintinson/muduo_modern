@@ -9,26 +9,51 @@
 #include "chaoxi/net/Endian.hpp"
 
 #include <cassert>
+#include <algorithm>
+#include <climits>
 #include <cstring>
 #include <format>
 
+#ifndef _WIN32
 #include <sys/socket.h>
-#include <sys/uio.h>  // readv
 #include <unistd.h>
+#endif
 
 namespace chaoxi::net::sockets
 {
 
 /// @brief 封装 ::read
-ssize_t read(int sockfd, void* buf, size_t count)
+SignedSize read(SocketHandle sockfd, void* buf, size_t count)
 {
+#ifdef _WIN32
+    int result = ::recv(sockfd, static_cast<char*>(buf),
+                        static_cast<int>(std::min<std::size_t>(count, INT_MAX)), 0);
+    if (result == SOCKET_ERROR)
+    {
+        errno = socketErrorToErrno(lastSocketError());
+        return -1;
+    }
+    return result;
+#else
     return ::read(sockfd, buf, count);
+#endif
 }
 
 /// @brief 封装 ::write
-ssize_t write(int sockfd, const void* buf, size_t count)
+SignedSize write(SocketHandle sockfd, const void* buf, size_t count)
 {
+#ifdef _WIN32
+    int result = ::send(sockfd, static_cast<const char*>(buf),
+                        static_cast<int>(std::min<std::size_t>(count, INT_MAX)), 0);
+    if (result == SOCKET_ERROR)
+    {
+        errno = socketErrorToErrno(lastSocketError());
+        return -1;
+    }
+    return result;
+#else
     return ::write(sockfd, buf, count);
+#endif
 }
 
 /// @brief 通过 getsockopt(SO_ERROR) 获取 socket 的 pending 错误
@@ -36,18 +61,24 @@ ssize_t write(int sockfd, const void* buf, size_t count)
 /// SO_ERROR 被 getsockopt 读取后会被内核自动清零。
 /// 如果 getsockopt 本身出错（参数非法），返回 errno。
 ///
-int getSocketError(int sockfd)
+int getSocketError(SocketHandle sockfd)
 {
     int optval{};
-    socklen_t optlen = static_cast<socklen_t>(sizeof optval);
+    SocketLength optlen = static_cast<SocketLength>(sizeof optval);
 
-    if (::getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &optval, &optlen) < 0)
+    if (::getsockopt(sockfd, SOL_SOCKET, SO_ERROR,
+#ifdef _WIN32
+                     reinterpret_cast<char*>(&optval),
+#else
+                     &optval,
+#endif
+                     &optlen) < 0)
     {
-        return errno;
+        return socketErrorToErrno(lastSocketError());
     }
     else
     {
-        return optval;
+        return socketErrorToErrno(optval);
     }
 }
 
@@ -84,9 +115,24 @@ const struct sockaddr_in6* sockaddr_in6_cast(const struct sockaddr* addr)
 /// 现代 Linux（2.6.27+）支持 SOCK_NONBLOCK | SOCK_CLOEXEC 作为 socket() 标志，
 /// 避免了传统方式中先 socket() 再 fcntl(F_SETFL) 的两次调用与竞态条件。
 ///
-int createNonblockingOrDie(sa_family_t family)
+SocketHandle createNonblockingOrDie(sa_family_t family)
 {
-#ifdef VALGRIND
+#ifdef _WIN32
+    ensureNetworkInitialized();
+    SocketHandle sockfd = ::socket(family, SOCK_STREAM, IPPROTO_TCP);
+    if (sockfd == kInvalidSocket)
+    {
+        errno = socketErrorToErrno(lastSocketError());
+        LOG_SYSFATAL << "sockets::createNonblockingOrDie";
+    }
+    u_long nonblocking = 1;
+    if (::ioctlsocket(sockfd, FIONBIO, &nonblocking) == SOCKET_ERROR)
+    {
+        errno = socketErrorToErrno(lastSocketError());
+        ::closesocket(sockfd);
+        LOG_SYSFATAL << "sockets::createNonblockingOrDie ioctlsocket";
+    }
+#elif defined(VALGRIND)
     int sockfd = ::socket(family, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd < 0)
     {
@@ -109,9 +155,19 @@ int createNonblockingOrDie(sa_family_t family)
 /// 当返回 -1 且 errno == EINPROGRESS 时是正常情况：
 /// 内核正在后台进行 TCP 三次握手，后续通过 epoll 可写事件检测连接完成。
 ///
-int connect(int sockfd, const struct sockaddr* addr)
+int connect(SocketHandle sockfd, const struct sockaddr* addr)
 {
-    return ::connect(sockfd, addr, static_cast<socklen_t>(sizeof(*addr)));
+    const int length = addr->sa_family == AF_INET6 ? sizeof(sockaddr_in6) : sizeof(sockaddr_in);
+    int result = ::connect(sockfd, addr, static_cast<SocketLength>(length));
+#ifdef _WIN32
+    if (result == SOCKET_ERROR)
+    {
+        const int error = lastSocketError();
+        errno = error == WSAEWOULDBLOCK ? EINPROGRESS : socketErrorToErrno(error);
+        return -1;
+    }
+#endif
+    return result;
 }
 
 /// @brief 将 IP:port 字符串解析为 sockaddr_in（IPv4）
@@ -162,21 +218,30 @@ void toIpPort(char* buf, size_t size, const struct sockaddr* addr)
 {
     if (addr->sa_family == AF_INET6)
     {
-        buf[0] = '[';
-        toIp(buf + 1, size - 1, addr);
-        size_t end = ::strlen(buf);
+        char ip[INET6_ADDRSTRLEN]{};
+        toIp(ip, sizeof ip, addr);
         const struct sockaddr_in6* addr6 = sockaddr_in6_cast(addr);
         uint16_t port = sockets::ntoh16(addr6->sin6_port);
-        assert(size > end);
-        std::format_to_n(buf + end, static_cast<int>(size - end), "]:{}", port);
+        const auto text = std::format("[{}]:{}", ip, port);
+        const auto count = std::min(size > 0 ? size - 1 : 0, text.size());
+        if (size > 0)
+        {
+            std::memcpy(buf, text.data(), count);
+            buf[count] = '\0';
+        }
         return;
     }
     toIp(buf, size, addr);
     size_t end = ::strlen(buf);
     const struct sockaddr_in* addr4 = sockaddr_in_cast(addr);
     uint16_t port = sockets::ntoh16(addr4->sin_port);
-    assert(size > end);
-    std::format_to_n(buf + end, static_cast<int>(size - end), ":{}", port);
+    const auto suffix = std::format(":{}", port);
+    const auto count = std::min(size > end ? size - end - 1 : 0, suffix.size());
+    if (size > end)
+    {
+        std::memcpy(buf + end, suffix.data(), count);
+        buf[end + count] = '\0';
+    }
 }
 
 /// @brief 从 sockaddr 提取 IP 地址字符串（缓冲区版本）
@@ -187,14 +252,14 @@ void toIp(char* buf, size_t size, const struct sockaddr* addr)
         assert(size >= INET_ADDRSTRLEN);
         const struct sockaddr_in* addr4 = sockaddr_in_cast(addr);
         ::inet_ntop(AF_INET, &addr4->sin_addr, buf,
-                    static_cast<socklen_t>(size));
+                    static_cast<SocketLength>(size));
     }
     else if (addr->sa_family == AF_INET6)
     {
         assert(size >= INET6_ADDRSTRLEN);
         const struct sockaddr_in6* addr6 = sockaddr_in6_cast(addr);
         ::inet_ntop(AF_INET6, &addr6->sin6_addr, buf,
-                    static_cast<socklen_t>(size));
+                    static_cast<SocketLength>(size));
     }
 }
 
@@ -219,23 +284,31 @@ void toIp(char* buf, size_t size, const struct sockaddr* addr)
 }
 
 /// @brief 开始监听，backlog = SOMAXCONN（系统上限）
-void listenOrDie(int sockfd)
+void listenOrDie(SocketHandle sockfd)
 {
     int ret = ::listen(sockfd, SOMAXCONN);
     if (ret < 0)
     {
+#ifdef _WIN32
+        errno = socketErrorToErrno(lastSocketError());
+#endif
         LOG_SYSFATAL << "sockets::listenOrDie";
     }
 }
 
 /// @brief bind 到指定地址，失败 fatal
-void bindOrDie(int sockfd, const struct sockaddr* addr)
+void bindOrDie(SocketHandle sockfd, const struct sockaddr* addr)
 {
     // 统一使用 sockaddr_in6 的大小以兼容 IPv4 和 IPv6
     int ret = ::bind(sockfd, addr,
-                     static_cast<socklen_t>(sizeof(struct sockaddr_in6)));
+                     static_cast<SocketLength>(addr->sa_family == AF_INET6
+                                                   ? sizeof(struct sockaddr_in6)
+                                                   : sizeof(struct sockaddr_in)));
     if (ret < 0)
     {
+#ifdef _WIN32
+        errno = socketErrorToErrno(lastSocketError());
+#endif
         LOG_SYSFATAL << "sockets::bindOrDie";
     }
 }
@@ -246,18 +319,28 @@ void bindOrDie(int sockfd, const struct sockaddr* addr)
 ///   - 期望的错误（EAGAIN, ECONNABORTED, EINTR, ...）→ 仅日志，返回 -1
 ///   - 非期望的错误（EBADF, EFAULT, ...）→ LOG_FATAL，终止程序
 ///
-int accept(int sockfd, struct sockaddr_in6* addr)
+SocketHandle accept(SocketHandle sockfd, struct sockaddr_in6* addr)
 {
-    socklen_t addrlen = static_cast<socklen_t>(sizeof *addr);
-#if defined(VALGRIND) || defined(NO_ACCEPT4)
-    int connfd = ::accept(sockfd, sockaddr_cast(addr), &addrlen);
+    SocketLength addrlen = static_cast<SocketLength>(sizeof *addr);
+#if defined(_WIN32)
+    SocketHandle connfd = ::accept(sockfd, sockaddr_cast(addr), &addrlen);
+    if (connfd != kInvalidSocket)
+    {
+        u_long nonblocking = 1;
+        (void)::ioctlsocket(connfd, FIONBIO, &nonblocking);
+    }
+#elif defined(VALGRIND) || defined(NO_ACCEPT4)
+    SocketHandle connfd = ::accept(sockfd, sockaddr_cast(addr), &addrlen);
     setNonBlockAndCloseOnExec(connfd);
 #else
-    int connfd = ::accept4(sockfd, sockaddr_cast(addr), &addrlen,
+    SocketHandle connfd = ::accept4(sockfd, sockaddr_cast(addr), &addrlen,
                            SOCK_NONBLOCK | SOCK_CLOEXEC);
 #endif
-    if (connfd < 0)
+    if (connfd == kInvalidSocket)
     {
+#ifdef _WIN32
+        errno = socketErrorToErrno(lastSocketError());
+#endif
         int savedErrno = errno;
         LOG_SYSERR << "Socket::accept";
         switch (savedErrno)
@@ -291,34 +374,47 @@ int accept(int sockfd, struct sockaddr_in6* addr)
 }
 
 /// @brief 获取本地地址（通过 getsockname）
-struct sockaddr_in6 getLocalAddr(int sockfd)
+struct sockaddr_in6 getLocalAddr(SocketHandle sockfd)
 {
     struct sockaddr_in6 localaddr{};
-    socklen_t addrlen = static_cast<socklen_t>(sizeof localaddr);
+    SocketLength addrlen = static_cast<SocketLength>(sizeof localaddr);
     if (::getsockname(sockfd, sockaddr_cast(&localaddr), &addrlen) < 0)
     {
+#ifdef _WIN32
+        errno = socketErrorToErrno(lastSocketError());
+#endif
         LOG_SYSERR << "sockets::getLocalAddr";
     }
     return localaddr;
 }
 
 /// @brief 获取对端地址（通过 getpeername）
-struct sockaddr_in6 getPeerAddr(int sockfd)
+struct sockaddr_in6 getPeerAddr(SocketHandle sockfd)
 {
     struct sockaddr_in6 peeraddr{};
-    socklen_t addrlen = static_cast<socklen_t>(sizeof peeraddr);
+    SocketLength addrlen = static_cast<SocketLength>(sizeof peeraddr);
     if (::getpeername(sockfd, sockaddr_cast(&peeraddr), &addrlen) < 0)
     {
+#ifdef _WIN32
+        errno = socketErrorToErrno(lastSocketError());
+#endif
         LOG_SYSERR << "sockets::getPeerAddr";
     }
     return peeraddr;
 }
 
 /// @brief 关闭 fd（封装 ::close，失败记录日志）
-void close(int sockfd)
+void close(SocketHandle sockfd)
 {
+#ifdef _WIN32
+    if (::closesocket(sockfd) == SOCKET_ERROR)
+#else
     if (::close(sockfd) < 0)
+#endif
     {
+#ifdef _WIN32
+        errno = socketErrorToErrno(lastSocketError());
+#endif
         LOG_SYSERR << "sockets::close";
     }
 }
@@ -328,7 +424,7 @@ void close(int sockfd)
 /// 自连接发生在客户端绑定某端口后又连接同一端口，内核可能直接让连接"成功"。
 /// 检测方法：比较 getsockname 和 getpeername 的 IP 和 port。
 ///
-bool isSelfConnect(int sockfd)
+bool isSelfConnect(SocketHandle sockfd)
 {
     struct sockaddr_in6 localaddr = getLocalAddr(sockfd);
     struct sockaddr_in6 peeraddr = getPeerAddr(sockfd);

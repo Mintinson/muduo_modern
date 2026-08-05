@@ -6,16 +6,20 @@
 #include <cstddef>
 #include <cstdio>
 
+#ifdef _WIN32
+#include <mstcpip.h>
+#else
 #include <netinet/tcp.h>  // for TCP_INFO, TCP_NODELAY, struct tcp_info
+#endif
 
 namespace chaoxi::net
 {
 
-int Socket::accept(InetAddress* peeraddr)
+Socket::SocketType Socket::accept(InetAddress* peeraddr)
 {
     struct sockaddr_in6 addr{};
-    int connfd = sockets::accept(sockfd_, &addr);
-    if (connfd >= 0)
+    SocketType connfd = sockets::accept(sockfd_, &addr);
+    if (connfd != kInvalidSocket)
     {
         peeraddr->setSockAddrInet6(addr);
     }
@@ -40,44 +44,64 @@ void Socket::listen()
 void Socket::setReuseAddr(bool on)
 {
     int optval = on ? 1 : 0;
-    ::setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, &optval,
-                 static_cast<socklen_t>(sizeof optval));
+    ::setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR,
+                 reinterpret_cast<const char*>(&optval), sizeof optval);
 }
 
 void Socket::setReusePort(bool on)
 {
     int optval = on ? 1 : 0;
-    ::setsockopt(sockfd_, SOL_SOCKET, SO_REUSEPORT, &optval,
-                 static_cast<socklen_t>(sizeof optval));
+#ifdef SO_REUSEPORT
+    ::setsockopt(sockfd_, SOL_SOCKET, SO_REUSEPORT,
+                 reinterpret_cast<const char*>(&optval), sizeof optval);
+#else
+    (void)optval;
+#endif
 }
 
 void Socket::setKeepAlive(bool on)
 {
     int optval = on ? 1 : 0;
-    ::setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, &optval,
-                 static_cast<socklen_t>(sizeof optval));
+    ::setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE,
+                 reinterpret_cast<const char*>(&optval), sizeof optval);
 }
 
 void Socket::setTcpNoDelay(bool on)
 {
     int optval = on ? 1 : 0;
-    ::setsockopt(sockfd_, IPPROTO_TCP, TCP_NODELAY, &optval,
-                 static_cast<socklen_t>(sizeof optval));
+    ::setsockopt(sockfd_, IPPROTO_TCP, TCP_NODELAY,
+                 reinterpret_cast<const char*>(&optval), sizeof optval);
 }
 
 void Socket::shutdownWrite()
 {
-    ::shutdown(sockfd_, SHUT_WR);
+    ::shutdown(sockfd_,
+#ifdef _WIN32
+               SD_SEND
+#else
+               SHUT_WR
+#endif
+    );
 }
 
 bool Socket::getTcpInfo(tcp_info* tcpi) const noexcept
 {
+#ifdef _WIN32
+    (void)tcpi;
+    return false;
+#else
     socklen_t len = sizeof(*tcpi);
     return ::getsockopt(sockfd_, SOL_TCP, TCP_INFO, tcpi, &len) == 0;
+#endif
 }
 
 bool Socket::getTcpInfoString(char* buf, std::size_t len) const noexcept
 {
+#ifdef _WIN32
+    (void)buf;
+    (void)len;
+    return false;
+#else
     tcp_info tcpi{};
     bool ok = getTcpInfo(&tcpi);
     if (ok)
@@ -90,6 +114,7 @@ bool Socket::getTcpInfoString(char* buf, std::size_t len) const noexcept
                       tcpi.tcpi_snd_cwnd, tcpi.tcpi_rcv_space);
     }
     return ok;
+#endif
 }
 
 }  // namespace chaoxi::net

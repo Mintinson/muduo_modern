@@ -4,15 +4,23 @@
 ///
 
 #include "chaoxi/net/Poller.hpp"
-#include "chaoxi/net/poller/EPollPoller.hpp"
+
+#if defined(__linux__)
+    #include "chaoxi/net/poller/EPollPoller.hpp"
+#else
+    #include "chaoxi/net/poller/PollPoller.hpp"
+#endif
 
 namespace chaoxi::net
 {
 
 Poller* Poller::newDefaultPoller(EventLoop* loop)
 {
-    // Linux 上 epoll(7) 是最高效的 I/O 多路复用机制
+#if defined(__linux__)
     return new EPollPoller(loop);
+#else
+    return new PollPoller(loop);
+#endif
 }
 
 }  // namespace chaoxi::net

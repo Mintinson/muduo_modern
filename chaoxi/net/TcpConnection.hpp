@@ -145,7 +145,7 @@ public:
     ///
     TcpConnection(EventLoop* loop,
                   std::string name,
-                  int sockfd,
+                  SocketHandle sockfd,
                   const InetAddress& localAddr,
                   const InetAddress& peerAddr);
 

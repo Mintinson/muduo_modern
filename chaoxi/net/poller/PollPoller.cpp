@@ -9,7 +9,9 @@
 #include <cstddef>
 #include <format>
 
+#ifndef _WIN32
 #include <sys/poll.h>
+#endif
 
 namespace chaoxi::net
 {
@@ -44,9 +46,58 @@ void PollPoller::fillActiveChannels(int numEvents,
 
 Timestamp PollPoller::poll(int timeoutMs, ChannelList* activeChannels)
 {
+#ifdef _WIN32
+    fd_set readSet;
+    fd_set writeSet;
+    fd_set errorSet;
+    FD_ZERO(&readSet);
+    FD_ZERO(&writeSet);
+    FD_ZERO(&errorSet);
+    for (auto& pfd : pollfds_)
+    {
+        pfd.revents = 0;
+        if (pfd.fd == INVALID_SOCKET)
+        {
+            continue;
+        }
+        if ((pfd.events & (POLLIN | POLLPRI)) != 0)
+        {
+            FD_SET(pfd.fd, &readSet);
+        }
+        if ((pfd.events & POLLOUT) != 0)
+        {
+            FD_SET(pfd.fd, &writeSet);
+        }
+        FD_SET(pfd.fd, &errorSet);
+    }
+    timeval timeout{timeoutMs / 1000, (timeoutMs % 1000) * 1000};
+    int numEvents = ::select(0, &readSet, &writeSet, &errorSet, &timeout);
+    if (numEvents > 0)
+    {
+        int readyDescriptors = 0;
+        for (auto& pfd : pollfds_)
+        {
+            if (pfd.fd == INVALID_SOCKET)
+            {
+                continue;
+            }
+            if (FD_ISSET(pfd.fd, &readSet)) pfd.revents |= POLLIN;
+            if (FD_ISSET(pfd.fd, &writeSet)) pfd.revents |= POLLOUT;
+            if (FD_ISSET(pfd.fd, &errorSet)) pfd.revents |= POLLERR;
+            if (pfd.revents != 0) ++readyDescriptors;
+        }
+        numEvents = readyDescriptors;
+    }
+#else
     int numEvents = ::poll(pollfds_.data(), pollfds_.size(), timeoutMs);
+#endif
 
-    int savedErrno = errno;
+    int savedErrno =
+#ifdef _WIN32
+        lastSocketError();
+#else
+        errno;
+#endif
 
     Timestamp now = Timestamp::clock::now();
 
@@ -61,10 +112,20 @@ Timestamp PollPoller::poll(int timeoutMs, ChannelList* activeChannels)
     }
     else
     {
-        if (savedErrno != EINTR)
+        if (savedErrno !=
+#ifdef _WIN32
+            WSAEINTR
+#else
+            EINTR
+#endif
+        )
         {
+#ifdef _WIN32
+            LOG_ERROR << std::format("PollPoller::WSAPoll() error {}", savedErrno);
+#else
             errno = savedErrno;
             LOG_SYSERR << "PollPoller::poll()";
+#endif
         }
     }
     return now;
@@ -82,7 +143,7 @@ void PollPoller::updateChannel(Channel* channel) noexcept
         // a new one, add to pollfds_
         assert(!channels_.contains(channel->fd()));
 
-        struct pollfd pfd;
+        ChaoxiPollFd pfd;
         pfd.fd = channel->fd();
         pfd.events = static_cast<short>(channel->events());
         pfd.revents = 0;
@@ -101,7 +162,11 @@ void PollPoller::updateChannel(Channel* channel) noexcept
 
         auto& pfd = pollfds_[(std::size_t)idx];
 
+#ifndef _WIN32
         assert(pfd.fd == channel->fd() || pfd.fd == -channel->fd() - 1);
+#else
+        assert(pfd.fd == channel->fd() || pfd.fd == INVALID_SOCKET);
+#endif
 
         pfd.fd = channel->fd();
         pfd.events = static_cast<short>(channel->events());
@@ -109,7 +174,11 @@ void PollPoller::updateChannel(Channel* channel) noexcept
         if (channel->isNoneEvent())
         {
             // ignore this pollfd
+#ifdef _WIN32
+            pfd.fd = INVALID_SOCKET;
+#else
             pfd.fd = -channel->fd() - 1;
+#endif
         }
     }
 }
@@ -124,9 +193,13 @@ void PollPoller::removeChannel(Channel* channel) noexcept
 
     int idx = channel->index();
     assert(0 <= idx && idx < static_cast<int>(pollfds_.size()));
-    const struct pollfd& pfd = pollfds_[(std::size_t)idx];
+    const ChaoxiPollFd& pfd = pollfds_[(std::size_t)idx];
     (void)pfd;
+#ifdef _WIN32
+    assert(pfd.fd == INVALID_SOCKET && pfd.events == channel->events());
+#else
     assert(pfd.fd == -channel->fd() - 1 && pfd.events == channel->events());
+#endif
     size_t n = channels_.erase(channel->fd());
     assert(n == 1);
     (void)n;
@@ -136,12 +209,26 @@ void PollPoller::removeChannel(Channel* channel) noexcept
     }
     else
     {
-        int channelAtEnd = pollfds_.back().fd;
+        SocketHandle channelAtEnd = pollfds_.back().fd;
         iter_swap(pollfds_.begin() + idx, pollfds_.end() - 1);
+#ifdef _WIN32
+        if (channelAtEnd == INVALID_SOCKET)
+        {
+            for (const auto& [fd, candidate] : channels_)
+            {
+                if (candidate->index() == static_cast<int>(pollfds_.size()) - 1)
+                {
+                    channelAtEnd = fd;
+                    break;
+                }
+            }
+        }
+#else
         if (channelAtEnd < 0)
         {
             channelAtEnd = -channelAtEnd - 1;
         }
+#endif
         channels_[channelAtEnd]->set_index(idx);
         pollfds_.pop_back();
     }

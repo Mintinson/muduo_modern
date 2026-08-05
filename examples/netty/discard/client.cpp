@@ -1,12 +1,12 @@
 #include "chaoxi/base/CurrentThread.hpp"
 #include "chaoxi/base/Logging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 #include "chaoxi/net/Callbacks.hpp"
 #include "chaoxi/net/EventLoop.hpp"
 
 #include <print>
 
 #include <chaoxi/net/TcpClient.hpp>
-#include <unistd.h>
 
 class DiscardClient
 {
@@ -74,7 +74,7 @@ private:
 int main(int argc, char* argv[])
 
 {
-    LOG_INFO << "pid = " << getpid()
+    LOG_INFO << "pid = " << chaoxi::process_info::pid()
              << ", tid = " << chaoxi::CurrentThread::tid();
 
     if (argc > 1)

@@ -107,7 +107,7 @@ void Connector::stopInLoop()
     if (state_.load(std::memory_order_acquire) == States::kConnecting)
     {
         setState(States::kDisconnected);
-        int sockfd = removeAndResetChannel();
+        SocketHandle sockfd = removeAndResetChannel();
         retry(sockfd);  // retry 内部检查 connect_，如果为 false 则直接 close
     }
 }
@@ -137,7 +137,7 @@ void Connector::stopInLoop()
 void Connector::connect()
 {
     // ① 创建非阻塞 socket
-    int sockfd = sockets::createNonblockingOrDie(serverAddr_.family());
+    SocketHandle sockfd = sockets::createNonblockingOrDie(serverAddr_.family());
 
     // ② 尝试非阻塞 connect
     int ret = sockets::connect(sockfd, serverAddr_.getSockAddr());
@@ -213,7 +213,7 @@ void Connector::restart()
 /// 把 socket fd 包装成 Channel，监控写事件。
 /// 当 TCP 三次握手完成时，fd 变为可写，handleWrite 被调用。
 ///
-void Connector::connecting(int sockfd)
+void Connector::connecting(SocketHandle sockfd)
 {
     setState(States::kConnecting);
     assert(!channel_);
@@ -248,11 +248,11 @@ void Connector::connecting(int sockfd)
 /// 因为在 Channel::handleEvent 的回调中不应该销毁 Channel 自身。
 /// 所以通过 queueInLoop 延迟到下一个循环再 reset。
 ///
-int Connector::removeAndResetChannel()
+SocketHandle Connector::removeAndResetChannel()
 {
     channel_->disableAll();
     channel_->remove();
-    int sockfd = channel_->fd();
+    SocketHandle sockfd = channel_->fd();
 
     // 不能在当前回调中销毁 Channel（handleEvent 还在使用它）
     loop_->queueInLoop([con = shared_from_this()] { con->resetChannel(); });
@@ -347,7 +347,7 @@ void Connector::handleError()
 
     if (state == States::kConnecting)
     {
-        int sockfd = removeAndResetChannel();
+        SocketHandle sockfd = removeAndResetChannel();
         int err = sockets::getSocketError(sockfd);
         std::error_code ec(err, std::system_category());
         FLOG_TRACE("SO_ERROR={} {}", err, ec.message());
@@ -373,7 +373,7 @@ void Connector::handleError()
 ///
 /// @param sockfd 要关闭的 socket fd
 ///
-void Connector::retry(int sockfd)
+void Connector::retry(SocketHandle sockfd)
 {
     sockets::close(sockfd);           // 关闭失败的 fd
     setState(States::kDisconnected);  // 状态 → 未连接

@@ -1,5 +1,6 @@
 
 #include "chaoxi/base/Logging.hpp"
+#include "chaoxi/base/ProcessInfo.hpp"
 #include "chaoxi/net/Callbacks.hpp"
 #include "chaoxi/net/EventLoop.hpp"
 #include "chaoxi/net/InetAddress.hpp"
@@ -8,7 +9,6 @@
 #include <cstdio>
 #include <print>
 
-#include <unistd.h>
 
 const char* g_file = nullptr;
 // FIXME: use FileUtil::readFile()
@@ -21,7 +21,7 @@ std::string readFile(const char* filename)
     // inefficient!!!
     const int kBufSize = 1024*1024;
     char iobuf[kBufSize];
-    ::setbuffer(fp, iobuf, sizeof iobuf);
+    (void)::setvbuf(fp, iobuf, _IOFBF, sizeof iobuf);
 
     char buf[kBufSize];
     size_t nread = 0;
@@ -58,7 +58,7 @@ void onConnection(const chaoxi::net::TcpConnectionPtr& conn)
 
 int main(int argc, char* argv[])
 {
-    LOG_INFO << "pid= " << getpid();
+    LOG_INFO << "pid= " << chaoxi::process_info::pid();
     if (argc > 1)
     {
         g_file = argv[1];
