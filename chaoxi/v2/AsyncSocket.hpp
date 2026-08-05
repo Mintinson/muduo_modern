@@ -12,7 +12,7 @@ namespace chaoxi::v2
 class AsyncSocket
 {
 public:
-    AsyncSocket(net::EventLoop& loop, int fd);
+    AsyncSocket(net::EventLoop& loop, net::SocketHandle fd);
 
     AsyncSocket(AsyncSocket&&) noexcept = default;
     AsyncSocket& operator=(AsyncSocket&&) noexcept = default;
@@ -23,7 +23,7 @@ public:
     static Task<AsyncSocket> connect(net::EventLoop& loop,
                                      const net::InetAddress& address);
 
-    [[nodiscard]] int nativeHandle() const noexcept
+    [[nodiscard]] net::SocketHandle nativeHandle() const noexcept
     {
         return fd_.nativeHandle();
     }

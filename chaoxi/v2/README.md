@@ -1,8 +1,8 @@
 # chaoxi v2 coroutine API
 
-`chaoxi::v2` 是构建在原有 `EventLoop`、`Channel` 和 epoll Reactor
-之上的无栈协程接口。它不会替换或修改现有 callback API，两套接口可以在同一
-进程中并存。
+`chaoxi::v2` 是构建在原有 `EventLoop`、`Channel` 和 Reactor 后端之上的
+无栈协程接口。Linux 使用 epoll，Windows 当前使用 `select`。它不会替换或
+修改现有 callback API，两套接口可以在同一进程中并存。
 
 ## 启用
 
@@ -69,6 +69,9 @@ loop.loop();
 - 异步对象应在其 EventLoop 线程创建；跨线程 `close()` 会自动投递回 loop。
 - 每个 fd 同时最多允许一个读等待者和一个写等待者，重复等待返回
   `operation_in_progress`。
+- Windows 上的 `AsyncFd` 只支持 Winsock socket，不能用来等待普通文件、
+  管道或其他 HANDLE；当前 `select` 后端最多管理 `FD_SETSIZE`（默认 1024）
+  个 socket。
 - `TcpServer::stop()` 是终止操作，停止后不能重新启动。
 - `TcpServer::stop()` 停止 accept，但不会强制取消或等待已经启动的连接 handler；
   应在这些 handler 结束后再销毁 EventLoop。

@@ -37,7 +37,13 @@ cmake --build .
 
 ### Windows（Visual Studio）
 
-Windows 使用 Winsock、基于 AFD 的 `wepoll` 事件分发、loopback socket 跨线程唤醒，以及由事件循环超时驱动的定时器 fallback。Linux 仍默认使用原有的 epoll/eventfd/timerfd 实现。
+Windows 当前使用 Winsock + `select` 作为事件分发后端，并使用 loopback socket
+完成跨线程唤醒、由事件循环的等待超时驱动定时器。Linux 使用原有的
+epoll/eventfd/timerfd 实现。
+
+> **后端状态：** 当前仓库并未启用 wepoll。Windows 实际创建的是
+> `PollPoller`，其内部调用 `select()`；`FD_SETSIZE` 当前配置为 1024。因此该
+> 后端适合功能验证和中小规模连接，不应把它的扩展性等同于 Linux epoll。
 
 在 PowerShell 7 中先加载 Visual Studio x64 开发环境，再配置和构建：
 
@@ -52,12 +58,11 @@ ctest --test-dir build --output-on-failure
 
 Windows 默认构建可移植的 examples。直接演示 `timerfd`、`epoll/pipe2`、Unix `socketpair` 等 Linux 内核接口的目标仅在 Linux 上生成。
 
-Windows 默认通过 `FetchContent` 获取固定版本 v1.5.8 的
-[`wepoll`](https://github.com/piscisaureus/wepoll)。它提供与 epoll 接近的
-ADD/MOD/DEL/WAIT 就绪通知模型，因此现有的 `EventLoop`、`Poller` 和
-`Channel` 结构不需要改变。可通过 `-DCHAOXI_WINDOWS_USE_WEPOLL=OFF`
-切回兼容性的 `select` 后端。IOCP 属于完成通知模型；若后续引入，更适合作为
-独立 Proactor 后端实现异步 accept/read/write，而不是伪装成 Reactor。
+源码中保留了 wepoll 接入的注释草案，但它不属于当前构建路径，也没有
+`CHAOXI_WINDOWS_USE_WEPOLL` 这一可用选项。若以后引入 wepoll，应同时实现并
+测试对应的 `Poller`，再开放构建选项。IOCP 属于完成通知模型；若后续引入，
+更适合作为独立 Proactor 后端实现异步 accept/read/write，而不是伪装成
+Reactor。
 
 ## 作为第三方库使用
 
@@ -85,17 +90,22 @@ target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
 
 ## 协程 v2
 
-项目提供可选的 `chaoxi::v2` 无栈协程接口，默认开启，不影响原有 callback
-版本。关闭方式：
+项目提供可选的 `chaoxi::v2` 无栈协程接口，默认关闭，不影响原有 callback
+版本。启用方式：
 
 ```bash
-cmake -S . -B build-v2 -DCHAOXI_BUILD_V2=OFF
+cmake -S . -B build-v2 -DCHAOXI_BUILD_V2=ON
 cmake --build build-v2 -j
+ctest --test-dir build-v2 -R '^v2\.' --output-on-failure
 ```
 
 协程版包含 `Task<T>`、EventLoop 调度、异步定时器、AsyncFd、AsyncSocket、
 AsyncAcceptor 和协程 TcpServer。API、示例与生命周期约束见
 [`chaoxi/v2/README.md`](chaoxi/v2/README.md)。
+
+该选项在 Linux 和 Windows 上都可用。Windows 的协程网络 I/O 复用上述
+`select` 后端，因此 `AsyncFd` 在 Windows 上只接受 Winsock socket，且同样
+受 `FD_SETSIZE` 限制。
 
 ### 单元测试
 

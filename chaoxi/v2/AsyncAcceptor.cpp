@@ -12,27 +12,13 @@
 #include <system_error>
 #include <utility>
 
-#include <sys/socket.h>
-
 namespace chaoxi::v2
 {
-namespace
-{
-
-socklen_t addressLength(const net::InetAddress& address) noexcept
-{
-    return address.family() == AF_INET
-               ? static_cast<socklen_t>(sizeof(sockaddr_in))
-               : static_cast<socklen_t>(sizeof(sockaddr_in6));
-}
-
-}  // namespace
-
 struct AsyncAcceptor::State : std::enable_shared_from_this<State>
 {
     struct PendingConnection
     {
-        int fd;
+        net::SocketHandle fd;
         net::InetAddress peerAddress;
     };
 
@@ -122,44 +108,50 @@ struct AsyncAcceptor::State : std::enable_shared_from_this<State>
           const net::InetAddress& listenAddress,
           bool reusePort)
         : loop_(loop)
-        , fd_(::socket(listenAddress.family(),
-                       SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
-                       IPPROTO_TCP))
+        , fd_(net::sockets::createNonblocking(listenAddress.family()))
         , channel_(&loop, fd_.load(std::memory_order_relaxed))
     {
         loop_.assertInLoopThread();
-        const int fd = fd_.load(std::memory_order_relaxed);
-        if (fd < 0)
+        const net::SocketHandle fd = fd_.load(std::memory_order_relaxed);
+        if (fd == net::kInvalidSocket)
         {
-            throw std::system_error(errno, std::system_category());
+            throw std::system_error(errno, std::generic_category());
         }
 
         const int enabled = 1;
-        if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enabled,
-                         static_cast<socklen_t>(sizeof(enabled))) < 0)
+        if (net::sockets::setSocketOption(fd, SOL_SOCKET, SO_REUSEADDR,
+                                          enabled) < 0)
         {
             const int error = errno;
             net::sockets::close(fd);
-            fd_.store(-1, std::memory_order_relaxed);
-            throw std::system_error(error, std::system_category());
+            fd_.store(net::kInvalidSocket, std::memory_order_relaxed);
+            throw std::system_error(error, std::generic_category());
         }
-        if (reusePort &&
-            ::setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enabled,
-                         static_cast<socklen_t>(sizeof(enabled))) < 0)
+#ifdef SO_REUSEPORT
+        if (reusePort && net::sockets::setSocketOption(
+                             fd, SOL_SOCKET, SO_REUSEPORT, enabled) < 0)
         {
             const int error = errno;
             net::sockets::close(fd);
-            fd_.store(-1, std::memory_order_relaxed);
-            throw std::system_error(error, std::system_category());
+            fd_.store(net::kInvalidSocket, std::memory_order_relaxed);
+            throw std::system_error(error, std::generic_category());
         }
-        if (::bind(fd, listenAddress.getSockAddr(),
-                   addressLength(listenAddress)) < 0 ||
-            ::listen(fd, SOMAXCONN) < 0)
+#else
+        if (reusePort)
+        {
+            net::sockets::close(fd);
+            fd_.store(net::kInvalidSocket, std::memory_order_relaxed);
+            throw std::system_error(
+                std::make_error_code(std::errc::operation_not_supported));
+        }
+#endif
+        if (net::sockets::bind(fd, listenAddress.getSockAddr()) < 0 ||
+            net::sockets::listen(fd) < 0)
         {
             const int error = errno;
             net::sockets::close(fd);
-            fd_.store(-1, std::memory_order_relaxed);
-            throw std::system_error(error, std::system_category());
+            fd_.store(net::kInvalidSocket, std::memory_order_relaxed);
+            throw std::system_error(error, std::generic_category());
         }
     }
 
@@ -197,7 +189,7 @@ struct AsyncAcceptor::State : std::enable_shared_from_this<State>
                         error = EIO;
                     }
                     state->completeError(
-                        std::error_code(error, std::system_category()));
+                        std::error_code(error, std::generic_category()));
                 }
             });
         channel_.enableReading();
@@ -210,12 +202,9 @@ struct AsyncAcceptor::State : std::enable_shared_from_this<State>
         while (true)
         {
             sockaddr_in6 peer{};
-            socklen_t length = static_cast<socklen_t>(sizeof(peer));
-            const int connectionFd =
-                ::accept4(fd_.load(std::memory_order_acquire),
-                          reinterpret_cast<sockaddr*>(&peer), &length,
-                          SOCK_NONBLOCK | SOCK_CLOEXEC);
-            if (connectionFd >= 0)
+            const net::SocketHandle connectionFd = net::sockets::accept(
+                fd_.load(std::memory_order_acquire), &peer);
+            if (connectionFd != net::kInvalidSocket)
             {
                 deliver(PendingConnection{connectionFd, net::InetAddress{peer}});
                 continue;
@@ -228,7 +217,7 @@ struct AsyncAcceptor::State : std::enable_shared_from_this<State>
             {
                 return;
             }
-            completeError(std::error_code(errno, std::system_category()));
+            completeError(std::error_code(errno, std::generic_category()));
             return;
         }
     }
@@ -296,15 +285,16 @@ struct AsyncAcceptor::State : std::enable_shared_from_this<State>
             registered_ = false;
         }
 
-        const int fd = fd_.exchange(-1, std::memory_order_acq_rel);
-        if (fd >= 0)
+        const net::SocketHandle fd =
+            fd_.exchange(net::kInvalidSocket, std::memory_order_acq_rel);
+        if (fd != net::kInvalidSocket)
         {
             net::sockets::close(fd);
         }
     }
 
     net::EventLoop& loop_;
-    std::atomic_int fd_;
+    std::atomic<net::SocketHandle> fd_;
     net::Channel channel_;
     std::atomic_bool closed_{false};
     bool registered_ = false;

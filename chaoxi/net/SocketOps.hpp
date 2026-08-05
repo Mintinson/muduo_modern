@@ -44,6 +44,12 @@ namespace chaoxi::net::sockets
 ///
 [[nodiscard]] SocketHandle createNonblockingOrDie(sa_family_t family);
 
+/// @brief 创建非阻塞 TCP socket，失败返回 kInvalidSocket 并设置 errno。
+[[nodiscard]] SocketHandle createNonblocking(sa_family_t family) noexcept;
+
+/// @brief 将 socket 设为非阻塞；POSIX 下同时设置 close-on-exec。
+int setNonblocking(SocketHandle sockfd) noexcept;
+
 /// @brief 封装 ::read
 [[nodiscard]] SignedSize read(SocketHandle sockfd, void* buf, size_t count);
 
@@ -52,6 +58,19 @@ namespace chaoxi::net::sockets
 
 /// @brief 封装 ::connect（非阻塞 connect 返回 -1，errno=EINPROGRESS）
 int connect(SocketHandle sockfd, const struct sockaddr* addr);
+
+/// @brief 非致命 bind/listen 包装，失败返回 -1 并设置 errno。
+int bind(SocketHandle sockfd, const struct sockaddr* addr) noexcept;
+int listen(SocketHandle sockfd) noexcept;
+
+/// @brief 设置整数 socket option，失败返回 -1 并设置 errno。
+int setSocketOption(SocketHandle sockfd,
+                    int level,
+                    int option,
+                    int value) noexcept;
+
+/// @brief 优雅关闭 socket 写端，失败返回 -1 并设置 errno。
+int shutdownWrite(SocketHandle sockfd) noexcept;
 
 /// @brief 开始监听，backlog 使用 SOMAXCONN，失败 fatal
 void listenOrDie(SocketHandle sockfd);

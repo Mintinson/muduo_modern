@@ -1,5 +1,6 @@
 #pragma once
 
+#include "chaoxi/net/Platform.hpp"
 #include "chaoxi/v2/Task.hpp"
 
 #include <cstddef>
@@ -24,7 +25,7 @@ class AsyncFd
 {
 public:
     AsyncFd(net::EventLoop& loop,
-            int fd,
+            net::SocketHandle fd,
             FdOwnership ownership = FdOwnership::owned);
     ~AsyncFd();
 
@@ -34,7 +35,7 @@ public:
     AsyncFd(const AsyncFd&) = delete;
     AsyncFd& operator=(const AsyncFd&) = delete;
 
-    [[nodiscard]] int nativeHandle() const noexcept;
+    [[nodiscard]] net::SocketHandle nativeHandle() const noexcept;
     [[nodiscard]] bool isOpen() const noexcept;
     [[nodiscard]] net::EventLoop& eventLoop() const;
 

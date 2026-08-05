@@ -11,8 +11,6 @@
 #include <system_error>
 #include <utility>
 
-#include <unistd.h>
-
 namespace chaoxi::v2
 {
 
@@ -90,13 +88,15 @@ struct AsyncFd::State : std::enable_shared_from_this<State>
         Waiter waiter_;
     };
 
-    State(net::EventLoop& loop, int fd, FdOwnership ownership)
+    State(net::EventLoop& loop,
+          net::SocketHandle fd,
+          FdOwnership ownership)
         : loop_(loop)
         , fd_(fd)
         , ownership_(ownership)
         , channel_(&loop, fd)
     {
-        if (fd < 0)
+        if (fd == net::kInvalidSocket)
         {
             throw std::system_error(
                 std::make_error_code(std::errc::bad_file_descriptor));
@@ -105,7 +105,7 @@ struct AsyncFd::State : std::enable_shared_from_this<State>
     }
 
     static std::shared_ptr<State> create(net::EventLoop& loop,
-                                         int fd,
+                                         net::SocketHandle fd,
                                          FdOwnership ownership)
     {
         auto state = std::shared_ptr<State>(new State(loop, fd, ownership));
@@ -143,7 +143,7 @@ struct AsyncFd::State : std::enable_shared_from_this<State>
                     if (error != 0)
                     {
                         const std::error_code code(error,
-                                                   std::system_category());
+                                                   std::generic_category());
                         state->complete(Direction::read, code);
                         state->complete(Direction::write, code);
                     }
@@ -167,7 +167,7 @@ struct AsyncFd::State : std::enable_shared_from_this<State>
                     {
                         error = EIO;
                     }
-                    const std::error_code code(error, std::system_category());
+                    const std::error_code code(error, std::generic_category());
                     state->complete(Direction::read, code);
                     state->complete(Direction::write, code);
                 }
@@ -269,15 +269,16 @@ struct AsyncFd::State : std::enable_shared_from_this<State>
             registered_ = false;
         }
 
-        const int fd = fd_.exchange(-1, std::memory_order_acq_rel);
-        if (ownership_ == FdOwnership::owned && fd >= 0)
+        const net::SocketHandle fd =
+            fd_.exchange(net::kInvalidSocket, std::memory_order_acq_rel);
+        if (ownership_ == FdOwnership::owned && fd != net::kInvalidSocket)
         {
             net::sockets::close(fd);
         }
     }
 
     net::EventLoop& loop_;
-    std::atomic_int fd_;
+    std::atomic<net::SocketHandle> fd_;
     FdOwnership ownership_;
     net::Channel channel_;
     std::atomic_bool closed_{false};
@@ -286,7 +287,9 @@ struct AsyncFd::State : std::enable_shared_from_this<State>
     Waiter* writeWaiter_ = nullptr;
 };
 
-AsyncFd::AsyncFd(net::EventLoop& loop, int fd, FdOwnership ownership)
+AsyncFd::AsyncFd(net::EventLoop& loop,
+                 net::SocketHandle fd,
+                 FdOwnership ownership)
     : state_(State::create(loop, fd, ownership))
 {
 }
@@ -313,9 +316,10 @@ AsyncFd& AsyncFd::operator=(AsyncFd&& other) noexcept
     return *this;
 }
 
-int AsyncFd::nativeHandle() const noexcept
+net::SocketHandle AsyncFd::nativeHandle() const noexcept
 {
-    return state_ ? state_->fd_.load(std::memory_order_acquire) : -1;
+    return state_ ? state_->fd_.load(std::memory_order_acquire)
+                  : net::kInvalidSocket;
 }
 
 bool AsyncFd::isOpen() const noexcept
@@ -398,8 +402,10 @@ Task<std::size_t> AsyncFd::readSomeImpl(std::shared_ptr<State> state,
 
     while (true)
     {
-        const int fd = state->fd_.load(std::memory_order_acquire);
-        const ssize_t result = ::read(fd, buffer.data(), buffer.size());
+        const net::SocketHandle fd =
+            state->fd_.load(std::memory_order_acquire);
+        const net::SignedSize result =
+            net::sockets::read(fd, buffer.data(), buffer.size());
         if (result >= 0)
         {
             co_return static_cast<std::size_t>(result);
@@ -413,7 +419,7 @@ Task<std::size_t> AsyncFd::readSomeImpl(std::shared_ptr<State> state,
             co_await State::Awaiter{state, State::Direction::read};
             continue;
         }
-        throw std::system_error(errno, std::system_category());
+        throw std::system_error(errno, std::generic_category());
     }
 }
 
@@ -433,8 +439,10 @@ Task<std::size_t> AsyncFd::writeSomeImpl(std::shared_ptr<State> state,
 
     while (true)
     {
-        const int fd = state->fd_.load(std::memory_order_acquire);
-        const ssize_t result = ::write(fd, buffer.data(), buffer.size());
+        const net::SocketHandle fd =
+            state->fd_.load(std::memory_order_acquire);
+        const net::SignedSize result =
+            net::sockets::write(fd, buffer.data(), buffer.size());
         if (result >= 0)
         {
             co_return static_cast<std::size_t>(result);
@@ -448,7 +456,7 @@ Task<std::size_t> AsyncFd::writeSomeImpl(std::shared_ptr<State> state,
             co_await State::Awaiter{state, State::Direction::write};
             continue;
         }
-        throw std::system_error(errno, std::system_category());
+        throw std::system_error(errno, std::generic_category());
     }
 }
 
