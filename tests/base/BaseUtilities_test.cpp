@@ -15,7 +15,9 @@
 #include <unordered_map>
 
 #include <gtest/gtest.h>
+#if !defined(_WIN32)
 #include <unistd.h>
+#endif
 
 namespace
 {

@@ -3,8 +3,8 @@
 #include <array>
 
 #ifdef _WIN32
-#include <Lmcons.h>
 #include <windows.h>
+#include <Lmcons.h>
 #else
 #include <pwd.h>
 #include <unistd.h>
