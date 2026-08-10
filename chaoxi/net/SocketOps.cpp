@@ -448,17 +448,23 @@ SocketHandle accept(SocketHandle sockfd, struct sockaddr_in6* addr)
 #ifdef _WIN32
         errno = socketErrorToErrno(lastSocketError());
 #endif
-        int savedErrno = errno;
-        LOG_SYSERR << "Socket::accept";
+        const int savedErrno = errno;
         switch (savedErrno)
         {
             case EAGAIN:
+#if EWOULDBLOCK != EAGAIN
+            case EWOULDBLOCK:
+#endif
+                // Draining a nonblocking listening socket normally ends here.
+                errno = savedErrno;
+                break;
             case ECONNABORTED:
             case EINTR:
             case EPROTO:
             case EPERM:
             case EMFILE:
                 // 期望的错误，errno 保留给调用者
+                LOG_SYSERR << "Socket::accept";
                 errno = savedErrno;
                 break;
             case EBADF:
@@ -470,9 +476,11 @@ SocketHandle accept(SocketHandle sockfd, struct sockaddr_in6* addr)
             case ENOTSOCK:
             case EOPNOTSUPP:
                 // 非期望错误，终止程序
+                errno = savedErrno;
                 LOG_FATAL << "unexpected error of ::accept " << savedErrno;
                 break;
             default:
+                errno = savedErrno;
                 LOG_FATAL << "unknown error of ::accept " << savedErrno;
                 break;
         }
