@@ -188,7 +188,7 @@ int main(int argc, char* argv[])
     else
     {
         LOG_INFO << "pid = " << process_info::pid() << ", tid = " << CurrentThread::tid();
-        Logger::setLogLevel(Logger::WARN);
+        Logger::setLogLevel(Logger::LogLevel::WARN);
 
         const char* ip = argv[1];
         uint16_t port = static_cast<uint16_t>(atoi(argv[2]));

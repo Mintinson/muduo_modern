@@ -22,6 +22,18 @@ option(CHAOXI_WARNINGS_AS_ERRORS "Treat warnings as errors for chaoxi targets" O
 
 message(STATUS "chaoxi coroutine v2: ${CHAOXI_BUILD_V2}")
 
+# if(PROJECT_IS_TOP_LEVEL)
+#     message("hhhh===========")
+#     find_program(CLANG_TIDY_EXE clang-tidy REQUIRED)
+#     find_program(RUN_CLANG_TIDY_EXE run-clang-tidy REQUIRED)
+
+#     add_custom_target(run-clang-tidy
+#         COMMAND ${RUN_CLANG_TIDY_EXE}
+#             -clang-tidy-binary ${CLANG_TIDY_EXE}
+#             -p ${CMAKE_BINARY_DIR}
+#     )
+# endif()
+
 # === 1. 核心库 ===
 add_subdirectory(chaoxi)
 
@@ -43,3 +55,4 @@ if(CHAOXI_BUILD_BENCHMARKS)
         message(WARNING "Benchmarking in Debug mode may produce inaccurate results. Consider using Release mode for benchmarking.")
     endif()
 endif()
+

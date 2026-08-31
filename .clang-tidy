@@ -18,5 +18,9 @@ Checks: >
   -readability-redundant-member-init,
   -modernize-use-trailing-return-type,
   -bugprone-easily-swappable-parameters,
-  -cppcoreguidelines-pro-type-reinterpret-cast
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -cppcoreguidelines-pro-type-union-access,
+  -portability-avoid-pragma-once
 

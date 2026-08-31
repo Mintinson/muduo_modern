@@ -3,11 +3,11 @@
 #include <array>
 
 #ifdef _WIN32
-#include <windows.h>
-#include <Lmcons.h>
+    #include <Lmcons.h>
+    #include <windows.h>
 #else
-#include <pwd.h>
-#include <unistd.h>
+    #include <pwd.h>
+    #include <unistd.h>
 #endif
 
 namespace chaoxi::process_info
@@ -23,16 +23,16 @@ pid_t pid()
 
 std::string hostname()
 {
-    char buf[256];
+    std::array<char, 256> buf{};  // NOLINT(readability-magic-numbers)
 #ifdef _WIN32
-    DWORD size = static_cast<DWORD>(sizeof buf);
-    if (::GetComputerNameA(buf, &size) != 0)
+    DWORD size = static_cast<DWORD>(buf.size());
+    if (::GetComputerNameA(buf.data(), &size) != 0)
 #else
-    if (::gethostname(buf, sizeof buf) == 0)
+    if (::gethostname(buf.data(), buf.size()) == 0)
 #endif
     {
-        buf[sizeof(buf) - 1] = '\0';
-        return buf;
+        buf.back() = '\0';
+        return {buf.begin(), buf.end()};
     }
 
     return "unknownhost";
@@ -48,10 +48,10 @@ std::string username()
         return buffer.data();
     }
 #else
-    struct passwd pwd;
+    struct passwd pwd{};
     struct passwd* result = nullptr;
 
-    std::array<char, 8192> buffer{};
+    std::array<char, 8192> buffer{};  // NOLINT(readability-magic-numbers)
     if (::getpwuid_r(::getuid(), &pwd, buffer.data(), buffer.size(), &result) ==
             0 &&
         result != nullptr)

@@ -196,7 +196,7 @@ public:
 
     /// 获取 tcp_info 结构体（来自 getsockopt TCP_INFO）
     /// @return 成功返回 true
-    [[nodiscard]] bool getTcpInfo(tcp_info*) const noexcept;
+    [[nodiscard]] bool getTcpInfo(tcp_info* tcpi) const noexcept;
 
     /// 获取 tcp_info 的字符串表示（如未重传数、RTT 等）
     [[nodiscard]] std::string getTcpInfoString() const noexcept;
@@ -228,10 +228,10 @@ public:
     template <std::ranges::contiguous_range R>
         requires std::same_as<std::remove_cv_t<std::ranges::range_value_t<R>>,
                               char>
-    void send(R&& message)
+    void send(const R& message)
     {
         send(std::string_view{std::ranges::data(message),
-                              std::ranges::size(message)});
+                              std::ranges::size(message),});
     }
 
     /// @brief 发送二进制 span 数据
@@ -251,7 +251,7 @@ public:
     ///   - Buffer 被 std::move 传入，避免了内存分配和拷贝
     ///   - 调用后 Buffer 内容被清空（retrieveAll）
     ///
-    void send(Buffer&& message);
+    void send(Buffer&& buf);
 
     // ---- 连接管理 (Thread Safe) ----
 
@@ -391,7 +391,7 @@ private:
         kDisconnected,
         kConnecting,
         kConnected,
-        kDisconnecting
+        kDisconnecting,
     };
 
     /// 设置状态（使用 release 语义，确保状态之前的写操作对后续的读可见）

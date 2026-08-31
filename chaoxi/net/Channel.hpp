@@ -158,16 +158,16 @@ public:
         update();
     }
 
-    bool isWriting() const noexcept { return events_ & kWriteEvent; }
-    bool isReading() const noexcept { return events_ & kReadEvent; }
+    [[nodiscard]] bool isWriting() const noexcept { return (events_ & kWriteEvent) != 0; }
+    [[nodiscard]] bool isReading() const noexcept { return (events_ & kReadEvent) != 0; }
 
     // for Poller
-    int index() const noexcept { return index_; }
+    [[nodiscard]] int index() const noexcept { return index_; }
     void set_index(int idx) noexcept { index_ = idx; }
 
     // for debug
-    std::string reventsToString() const noexcept;
-    std::string eventsToString() const noexcept;
+    [[nodiscard]] std::string reventsToString() const noexcept;
+    [[nodiscard]] std::string eventsToString() const noexcept;
 
     void doNotLogHup() noexcept { logHup_ = false; }
 

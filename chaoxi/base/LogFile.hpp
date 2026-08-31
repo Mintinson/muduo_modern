@@ -28,6 +28,7 @@ class AppendFile;
 class LogFile
 {
 public:
+    constexpr static int kDefaultCheck = 4;
     /// @param basename      日志文件基本名（不含路径，不含扩展名）
     /// @param rollSize      文件大小滚动阈值（字节）
     /// @param threadSafe    是否加锁（默认 true）
@@ -37,7 +38,7 @@ public:
             std::size_t rollSize,
             bool threadSafe = true,
             int flushInterval = 3,
-            int checkEveryN = 1024);
+            int checkEveryN = kDefaultCheck);
     ~LogFile();
     LogFile(const LogFile&) = delete;
     LogFile& operator=(const LogFile&) = delete;

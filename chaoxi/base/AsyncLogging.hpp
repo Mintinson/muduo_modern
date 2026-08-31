@@ -60,7 +60,7 @@ namespace chaoxi
 class AsyncLogging
 {
 public:
-    static constexpr std::size_t kDefaultBufferSize = 4 * 1024 * 1024;  // 4MB
+    static constexpr std::size_t kDefaultBufferSize = 4UL * 1024 * 1024;  // 4MB
     AsyncLogging(std::string basename,
                  std::size_t rollSize,
                  int flushInterval = 3);
@@ -83,6 +83,9 @@ public:
     void stop();
 
 private:
+    static constexpr std::size_t kBufferToWriteMaxSize = 25;  
+    static constexpr std::size_t kBufferToWriteDefaultCap = 16;  
+
     ///
     /// 后端线程主循环: 等待 → 收集 → 写入 LogFile → 回收 buffer
     ///

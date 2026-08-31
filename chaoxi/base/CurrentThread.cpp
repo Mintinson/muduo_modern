@@ -5,10 +5,10 @@
 #include <thread>
 
 #ifdef _WIN32
-#include <windows.h>
+    #include <windows.h>
 #else
-#include <sys/syscall.h>
-#include <unistd.h>
+    #include <sys/syscall.h>
+    #include <unistd.h>
 #endif
 
 namespace chaoxi::detail
@@ -18,7 +18,8 @@ namespace chaoxi::detail
 #ifdef _WIN32
     return static_cast<int>(::GetCurrentThreadId());
 #else
-    return static_cast<pid_t>(::syscall(SYS_gettid));
+    return static_cast<pid_t>(
+        ::syscall(SYS_gettid));  // NOLINT(cppcoreguidelines-pro-type-vararg)
 #endif
 }
 };  // namespace chaoxi::detail
@@ -28,7 +29,7 @@ namespace chaoxi::CurrentThread
 namespace
 {
 const int mainThreadId = detail::gettid();
-}
+}  // namespace
 
 thread_local int t_cachedTid = 0;
 thread_local char t_tidString[32];

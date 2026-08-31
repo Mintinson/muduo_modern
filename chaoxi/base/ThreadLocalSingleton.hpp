@@ -129,6 +129,10 @@ class ThreadLocalSingleton final
 public:
     ThreadLocalSingleton() = delete;
     ~ThreadLocalSingleton() = delete;
+    ThreadLocalSingleton(const ThreadLocalSingleton&) = delete;
+    ThreadLocalSingleton(ThreadLocalSingleton&&) noexcept = delete;
+    ThreadLocalSingleton& operator=(const ThreadLocalSingleton&) = delete;
+    ThreadLocalSingleton& operator=(ThreadLocalSingleton&&) noexcept = delete;
 
     [[nodiscard]]
     static T& instance() noexcept(std::is_nothrow_default_constructible_v<T>)

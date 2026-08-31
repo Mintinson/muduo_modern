@@ -7,7 +7,6 @@
 #include <string>
 #include <string_view>
 
-
 namespace chaoxi::net
 {
 class InetAddress

@@ -18,7 +18,7 @@ public:
 
     friend class TimerQueue;
 
-private:
+private: 
     Timer* timer_ = nullptr;
     int64_t sequence_ = 0;
 };

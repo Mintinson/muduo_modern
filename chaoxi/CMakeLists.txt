@@ -1,3 +1,7 @@
+# find_program(CLANG_TIDY_EXE clang-tidy REQUIRED)
+# # 设置该目录下所有 Target 自动启用 clang-tidy 检查
+# set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+
 # ==========================
 # 1. Base 模块 (底层的工具、日志、线程池等)
 # ==========================

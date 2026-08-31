@@ -15,7 +15,7 @@ class TimeZone;
 class Logger
 {
 public:
-    enum LogLevel : std::uint8_t
+    enum class LogLevel : std::uint8_t
     {
         TRACE,
         DEBUG,
@@ -150,6 +150,7 @@ private:
 ///       FLOG_INFO("plain")   → 等同于 LOG_INFO << "plain"
 ///       FLOG_INFO("{}", val) → 格式化单个值
 ///
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define FLOG_TRACE(...)                                                \
     if (chaoxi::Logger::logLevel() <= chaoxi::Logger::LogLevel::TRACE) \
     chaoxi::Logger(chaoxi::Logger::LogLevel::TRACE).stream().format(__VA_ARGS__)
@@ -174,3 +175,4 @@ private:
     chaoxi::Logger(chaoxi::Logger::LogLevel::FATAL, errno) \
         .stream()                                          \
         .format(__VA_ARGS__)
+// NOLINTEND(cppcoreguidelines-macro-usage)

@@ -27,7 +27,9 @@ AsyncLogging::AsyncLogging(std::string basename,
 {
     currentBuffer_->bzero();
     nextBuffer_->bzero();
-    buffers_.reserve(16);  // 预分配队列空间
+    buffers_.reserve(
+        16);  // 预分配队列空间 NOLINT(cppcoreguidelines-avoid-magic-numbers,
+              // readability-magic-numbers)
 }
 
 AsyncLogging::~AsyncLogging()
@@ -40,7 +42,7 @@ AsyncLogging::~AsyncLogging()
 
 void AsyncLogging::append(std::string_view msg)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
 
     if (currentBuffer_->avail() > msg.size())  // 最常见情况：空间够
     {
@@ -89,7 +91,8 @@ void AsyncLogging::stop()
     }
 }
 
-void AsyncLogging::threadFunc()
+void AsyncLogging::
+    threadFunc()  // NOLINT(readability-function-cognitive-complexity)
 {
     latch_.count_down();  // 通知 start() 线程已启动
 
@@ -104,7 +107,7 @@ void AsyncLogging::threadFunc()
 
     BufferVector buffersToWrite;  // 后端本次要写入文件的缓冲集合
     // BufferVector buffersToWrite;
-    buffersToWrite.reserve(16);
+    buffersToWrite.reserve(kBufferToWriteDefaultCap);
 
     while (running_.load(std::memory_order_acquire))
     {
@@ -144,7 +147,7 @@ void AsyncLogging::threadFunc()
         // ── 积压保护 ──
         // 如果待写的 buffer 超过 25 个, 说明后端跟不上前端的速度
         // 丢弃多余的, 只保留前 2 个（最早的日志）, 避免内存爆炸
-        if (buffersToWrite.size() > 25)
+        if (buffersToWrite.size() > kBufferToWriteMaxSize)
         {
             std::string dropMsg =
                 std::format("Dropped log messages at {}, {} larger buffers\n",
@@ -177,7 +180,7 @@ void AsyncLogging::threadFunc()
             assert(!buffersToWrite.empty());
             newBuffer1 = std::move(buffersToWrite.back());
             buffersToWrite.pop_back();
-            newBuffer1->reset();  // 清空数据, 复用作空 buffer
+            (*newBuffer1).reset();  // 清空数据, 复用作空 buffer
         }
 
         if (!newBuffer2)
@@ -185,7 +188,7 @@ void AsyncLogging::threadFunc()
             assert(!buffersToWrite.empty());
             newBuffer2 = std::move(buffersToWrite.back());
             buffersToWrite.pop_back();
-            newBuffer2->reset();
+            (*newBuffer2).reset();
         }
 
         buffersToWrite.clear();

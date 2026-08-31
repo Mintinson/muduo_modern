@@ -27,6 +27,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <type_traits>
 
 namespace chaoxi
 {
@@ -34,24 +35,24 @@ namespace
 {
 void defaultOutput(std::string_view msg)
 {
-    std::fwrite(msg.data(), 1, msg.size(), stdout);
+    (void)std::fwrite(msg.data(), 1, msg.size(), stdout);
 }
 
 void defaultFlush()
 {
-    std::fflush(stdout);
+    (void)std::fflush(stdout);
 }
 
-Logger::OutputFunc g_output = defaultOutput;
-Logger::FlushFunc g_flush = defaultFlush;
+Logger::OutputFunc g_output = defaultOutput;  // NOLINT
+Logger::FlushFunc g_flush = defaultFlush;     // NOLINT
 
 constexpr std::array<std::string_view,
                      static_cast<size_t>(Logger::LogLevel::NUM_LOG_LEVELS)>
     LogLevelName = {"TRACE ", "DEBUG ", "INFO  ", "WARN  ", "ERROR ", "FATAL "};
 
-thread_local std::array<char, 32> t_time{};
+thread_local std::array<char, 32> t_time{};  // NOLINT
 // thread_local char t_time[32];
-thread_local std::chrono::seconds t_lastSecond{};
+thread_local std::chrono::seconds t_lastSecond{};  // NOLINT
 
 }  // namespace
 
@@ -114,7 +115,8 @@ constexpr Logger::Impl::Impl(LogLevel level, int savedErrno, LogLocation sl)
 {
     formatTime();
     stream_ << CurrentThread::tidString();
-    stream_ << LogLevelName[static_cast<size_t>(level)];
+    stream_
+        << LogLevelName[static_cast<std::underlying_type_t<LogLevel>>(level)]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
     if (savedErrno != 0)
     {
@@ -152,19 +154,19 @@ void Logger::Impl::formatTime()
     // stream_.format(".{:06d} ", us);
     // 更加高效的方式：直接在 FixedBuffer 尾部写入微秒数，避免 format
     // 的运行时开销
-
+    const long divider = 10;
     if (stream_.buffer().avail() >= kMicroSecondsWidth)
     {
         auto buf = stream_.buffer().writeSpan(kMicroSecondsWidth);
         // char* buf = stream_.buffer().current();
-        buf[0] = '.';
-        buf[kMicroSecondsWidth - 1] = ' ';
+        buf.front() = '.';
+        buf.back() = ' ';
 
         // 逆序填充数字
         for (std::size_t j = kMicroSecondsWidth - 2; j >= 1; --j)
         {
-            buf[j] = static_cast<char>('0' + (us % 10));
-            us /= 10;
+            buf[j] = static_cast<char>('0' + (us % divider));
+            us /= divider;
         }
         // stream_.buffer().add(8);
     }

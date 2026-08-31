@@ -29,7 +29,7 @@ LogFile::LogFile(std::string basename,
     , mutex_(threadSafe ? std::make_unique<std::mutex>() : nullptr)
 {
     // basename 不应含路径分隔符（文件名只用于日志命名，不含目录）
-    assert(basename_.find('/') == std::string::npos);
+    assert(basename.contains('/'));
     rollFile();  // 构造时立即创建第一个日志文件
 }
 
@@ -42,7 +42,7 @@ void LogFile::append(std::string_view logline)
 {
     if (mutex_)
     {
-        std::lock_guard<std::mutex> lock(*mutex_);
+        std::scoped_lock lock(*mutex_);
         append_unlocked(logline);
     }
     else
@@ -55,7 +55,7 @@ void LogFile::flush()
 {
     if (mutex_)
     {
-        std::lock_guard<std::mutex> lock(*mutex_);
+        std::scoped_lock lock(*mutex_);
         file_->flush();
     }
     else
