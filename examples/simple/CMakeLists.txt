@@ -27,7 +27,6 @@ add_executable(simple_all_in_one
 target_link_libraries(simple_all_in_one PRIVATE chaoxi::chaoxi)
 
 
-add_executable(demo demo.cpp)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(s00_test1 s00/s00_test1.cpp)
