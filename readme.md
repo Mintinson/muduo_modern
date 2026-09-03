@@ -64,18 +64,63 @@ Windows 默认构建可移植的 examples。直接演示 `timerfd`、`epoll/pipe
 更适合作为独立 Proactor 后端实现异步 accept/read/write，而不是伪装成
 Reactor。
 
-## 作为第三方库使用
+## 作为第三方库使用 (TODO: 更新到使用 find_package)
 
-如果你在一个新项目里使用它，推荐把这个仓库作为子目录接入，例如放在 `third_party/chaoxi/`，然后在你自己的 `CMakeLists.txt` 里这样写：
+### 1. 已安装
 
 ```cmake
-set(CHAOXI_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(CHAOXI_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(CHAOXI_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+find_package(chaoxi CONFIG REQUIRED)
 
-add_subdirectory(third_party/chaoxi)
-target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
+target_link_libraries(
+    app
+    PRIVATE
+        chaoxi::chaoxi
+)
 ```
+
+### 2. 优先 find，找不到自动 fetch——推荐
+
+```cmake
+include(FetchContent)
+
+FetchContent_Declare(
+    chaoxi
+    GIT_REPOSITORY https://github.com/Mintinson/muduo_modern.git
+    GIT_TAG        <tag-or-commit>
+    FIND_PACKAGE_ARGS CONFIG
+)
+
+FetchContent_MakeAvailable(chaoxi)
+
+target_link_libraries(
+    app
+    PRIVATE
+        chaoxi::chaoxi
+)
+```
+
+### 3. 强制 Git 源码，并允许使用 `find_package`
+
+```cmake
+include(FetchContent)
+
+FetchContent_Declare(
+    chaoxi
+    GIT_REPOSITORY https://github.com/Mintinson/muduo_modern.git
+    GIT_TAG        <tag-or-commit>
+    OVERRIDE_FIND_PACKAGE
+)
+
+find_package(chaoxi CONFIG REQUIRED)
+
+target_link_libraries(
+    app
+    PRIVATE
+        chaoxi::chaoxi
+)
+```
+
+### 4. Git Clone 引入
 
 如果你是通过 `git clone` 方式引入，也可以先把仓库放到项目目录下，再用同样的方式通过 `add_subdirectory()` 接入。这样只会编译库本身，`examples/`、`tests/` 和 `benchmark/` 都会保持关闭。
 
@@ -83,6 +128,8 @@ target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
 add_subdirectory(chaoxi)
 target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
 ```
+
+
 
 ## 运行
 

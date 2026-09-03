@@ -1,0 +1,79 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(Threads)
+
+include("${CMAKE_CURRENT_LIST_DIR}/chaoxiTargets.cmake")
+
+check_required_components(chaoxi)
+
+@PACKAGE_INIT@
+
+# ============================================================
+# Components
+# ============================================================
+
+set(_chaoxi_supported_components
+    base
+    net
+)
+
+if("@CHAOXI_PACKAGE_HAS_V2@" STREQUAL "ON")
+    list(APPEND _chaoxi_supported_components v2)
+endif()
+
+foreach(
+    _chaoxi_component
+    IN LISTS ${CMAKE_FIND_PACKAGE_NAME}_FIND_COMPONENTS
+)
+    list(
+        FIND
+        _chaoxi_supported_components
+        "${_chaoxi_component}"
+        _chaoxi_component_index
+    )
+
+    if(_chaoxi_component_index EQUAL -1)
+        set(
+            ${CMAKE_FIND_PACKAGE_NAME}_${_chaoxi_component}_FOUND
+            FALSE
+        )
+
+        if(${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED_${_chaoxi_component})
+            set(
+                ${CMAKE_FIND_PACKAGE_NAME}_FOUND
+                FALSE
+            )
+
+            set(
+                ${CMAKE_FIND_PACKAGE_NAME}_NOT_FOUND_MESSAGE
+                "Unsupported or unavailable chaoxi component: "
+                "${_chaoxi_component}"
+            )
+
+            return()
+        endif()
+    else()
+        set(
+            ${CMAKE_FIND_PACKAGE_NAME}_${_chaoxi_component}_FOUND
+            TRUE
+        )
+    endif()
+endforeach()
+
+# ============================================================
+# Dependencies
+# ============================================================
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(Threads)
+
+# ============================================================
+# Imported targets
+# ============================================================
+
+include("${CMAKE_CURRENT_LIST_DIR}/chaoxiTargets.cmake")
+
+check_required_components(chaoxi)

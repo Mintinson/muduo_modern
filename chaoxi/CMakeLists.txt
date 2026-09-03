@@ -72,10 +72,20 @@ function(chaoxi_target_suppress_warnings target)
     endforeach()
 endfunction()
 
-# TODO: 当项目完成的时候，将下面两句解开，方便一点
-# file(GLOB_RECURSE BASE_SOURCES CONFIGURE_DEPENDS "base/*.cpp")
-# add_library(chaoxi_base STATIC ${BASE_SOURCES})
-add_library(chaoxi_base STATIC
+# ==========================
+# Base Library
+# ==========================
+add_library(chaoxi_base STATIC)
+add_library(chaoxi::base ALIAS chaoxi_base)
+set_target_properties(
+    chaoxi_base
+    PROPERTIES
+    EXPORT_NAME base
+)
+target_sources(
+    chaoxi_base
+
+    PRIVATE
     base/Logging.cpp
     base/LogStream.cpp
     base/CurrentThread.cpp
@@ -83,15 +93,51 @@ add_library(chaoxi_base STATIC
     base/FileUtil.cpp
     base/ProcessInfo.cpp
     base/AsyncLogging.cpp
+
+    PUBLIC
+    FILE_SET HEADERS
+    TYPE HEADERS
+
+    BASE_DIRS
+    "${PROJECT_SOURCE_DIR}"
+
+    FILES
+    base/AsyncLogging.hpp
+    base/BlockingQueue.hpp
+    base/BoundedBlockingQueue.hpp
+    base/CurrentThread.hpp
+    base/FileUtil.hpp
+    # base/GzipFile.hpp   
+    base/LogFile.hpp
+    base/LogStream.hpp
+    base/Logging.hpp
+    base/ProcessInfo.hpp
+    base/ThreadLocalSingleton.hpp
+    base/Timestamp.hpp
+    base/Utility.hpp
 )
-add_library(chaoxi::base ALIAS chaoxi_base)
+
+# add_library(chaoxi_base STATIC
+#     base/Logging.cpp
+#     base/LogStream.cpp
+#     base/CurrentThread.cpp
+#     base/LogFile.cpp
+#     base/FileUtil.cpp
+#     base/ProcessInfo.cpp
+#     base/AsyncLogging.cpp
+# )
+target_compile_features(
+    chaoxi_base
+    PUBLIC
+    cxx_std_23
+)
 chaoxi_target_enable_warnings(chaoxi_base)
 
-target_include_directories(chaoxi_base
-    PUBLIC
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-    $<INSTALL_INTERFACE:include>
-)
+# target_include_directories(chaoxi_base
+#     PUBLIC
+#     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+#     # $<INSTALL_INTERFACE:include>
+# )
 
 # 基础库可能用到了线程
 find_package(Threads REQUIRED)
@@ -106,10 +152,8 @@ endif()
 
 
 # ==========================
-# 2. Net 模块 (网络核心层)
+# Net Library
 # ==========================
-# file(GLOB_RECURSE NET_SOURCES CONFIGURE_DEPENDS "net/*.cpp")
-# add_library(chaoxi_net STATIC ${NET_SOURCES})
 set(CHAOXI_NET_SOURCES
     net/Acceptor.cpp
     net/Buffer.cpp
@@ -119,8 +163,10 @@ set(CHAOXI_NET_SOURCES
     net/EventLoopThreadPool.cpp
     net/InetAddress.cpp
     net/Poller.cpp
+
     net/poller/PollPoller.cpp
     net/poller/DefaultPoller.cpp
+
     net/Socket.cpp
     net/SocketOps.cpp
     net/TcpConnection.cpp
@@ -140,24 +186,82 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND CHAOXI_NET_SOURCES net/poller/EPollPoller.cpp)
 endif()
 
-add_library(chaoxi_net STATIC ${CHAOXI_NET_SOURCES})
+# add_library(chaoxi_net STATIC ${CHAOXI_NET_SOURCES})
+add_library(chaoxi_net STATIC)
 add_library(chaoxi::net ALIAS chaoxi_net)
 chaoxi_target_enable_warnings(chaoxi_net)
+set_target_properties(
+    chaoxi_net
+    PROPERTIES
+    EXPORT_NAME net
+)
+target_sources(
+    chaoxi_net
 
-target_include_directories(chaoxi_net
+    PRIVATE
+        ${CHAOXI_NET_SOURCES}
+
     PUBLIC
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-    $<INSTALL_INTERFACE:include>
+        FILE_SET HEADERS
+        TYPE HEADERS
+
+        BASE_DIRS
+            "${PROJECT_SOURCE_DIR}"
+
+        FILES
+            net/Acceptor.hpp
+            net/Buffer.hpp
+            net/Callbacks.hpp
+            net/Channel.hpp
+            net/Connector.hpp
+            net/Endian.hpp
+            net/EventLoop.hpp
+            net/EventLoopThread.hpp
+            net/EventLoopThreadPool.hpp
+            net/InetAddress.hpp
+            net/Platform.hpp
+            net/Poller.hpp
+            net/Socket.hpp
+            net/SocketOps.hpp
+            net/TcpClient.hpp
+            net/TcpConnection.hpp
+            net/TcpServer.hpp
+            net/Timer.hpp
+            net/TimerId.hpp
+            net/TimerQueue.hpp
+
+            net/http/HttpContext.hpp
+            net/http/HttpRequest.hpp
+            net/http/HttpResponse.hpp
+            net/http/HttpServer.hpp
+
+            net/poller/EPollPoller.hpp
+            net/poller/PollPoller.hpp
+
+    # PRIVATE
+    #     FILE_SET internal_headers
+    #     TYPE HEADERS
+    #     BASE_DIRS "${PROJECT_SOURCE_DIR}"
+    #     FILES
+    #         net/poller/EPollPoller.hpp
+    #         net/poller/PollPoller.hpp
 )
 
-# 网络层往往重度依赖基础层，将依赖通过 PUBLIC 透传
+target_compile_features(
+    chaoxi_net
+    PUBLIC
+    cxx_std_23
+)
+# target_include_directories(chaoxi_net
+#     PUBLIC
+#     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+#     # $<INSTALL_INTERFACE:include>
+# )
+
 target_link_libraries(chaoxi_net PUBLIC chaoxi::base)
+
 if(WIN32)
     target_link_libraries(chaoxi_net PUBLIC ws2_32)
-    # if(CHAOXI_WINDOWS_USE_WEPOLL)
-    #     target_link_libraries(chaoxi_net PRIVATE chaoxi_wepoll)
-    #     target_compile_definitions(chaoxi_net PUBLIC CHAOXI_HAS_WEPOLL=1)
-    # endif()
 endif()
 
 
@@ -168,7 +272,16 @@ endif()
 add_library(chaoxi INTERFACE)
 add_library(chaoxi::chaoxi ALIAS chaoxi)
 target_link_libraries(chaoxi INTERFACE chaoxi::base chaoxi::net)
+set_target_properties(
+    chaoxi
+    PROPERTIES
+    EXPORT_NAME chaoxi
+)
 
+
+# ==========================
+# 4. V2 (Optional)
+# ==========================
 if(CHAOXI_BUILD_V2)
     add_subdirectory(v2)
     target_link_libraries(chaoxi INTERFACE chaoxi::v2)
