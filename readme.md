@@ -66,7 +66,23 @@ Reactor。
 
 ## 作为第三方库使用 (TODO: 更新到使用 find_package)
 
-### 1. 已安装
+### 1. 本地安装
+
+```
+cmake -S . -B build \
+     -DCHAOXI_BUILD_EXAMPLES=OFF \
+     -DCHAOXI_BUILD_TESTS=OFF \
+     -DCHAOXI_BUILD_BENCHMARKS=OFF \
+     -DCMAKE_BUILD_TYPE=Release
+
+cd build
+cmake --build .
+cmake --install .
+```
+
+上述命令会讲该库安装到本地。
+
+在项目的 cmake 中
 
 ```cmake
 find_package(chaoxi CONFIG REQUIRED)
@@ -88,6 +104,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/Mintinson/muduo_modern.git
     GIT_TAG        <tag-or-commit>
     FIND_PACKAGE_ARGS CONFIG
+    GIT_SUBMODULES ""
 )
 
 FetchContent_MakeAvailable(chaoxi)
@@ -109,6 +126,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/Mintinson/muduo_modern.git
     GIT_TAG        <tag-or-commit>
     OVERRIDE_FIND_PACKAGE
+    GIT_SUBMODULES ""
 )
 
 find_package(chaoxi CONFIG REQUIRED)
@@ -129,6 +147,18 @@ add_subdirectory(chaoxi)
 target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
 ```
 
+或者在本地任意位置，通过`FetchContent_Declare` 引入：
+
+```cmake
+
+FetchContent_Declare(
+    chaoxi
+    SOURCE_DIR "path-to-the-repo"
+    FIND_PACKAGE_ARGS CONFIG
+    GIT_SUBMODULES ""
+)
+target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
+```
 
 
 ## 运行
@@ -144,6 +174,21 @@ target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
 cmake -S . -B build-v2 -DCHAOXI_BUILD_V2=ON
 cmake --build build-v2 -j
 ctest --test-dir build-v2 -R '^v2\.' --output-on-failure
+```
+
+或者作为第三方库：
+
+```cmake
+set(CHAOXI_BUILD_V2 ON CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    chaoxi
+    GIT_REPOSITORY https://github.com/Mintinson/muduo_modern.git
+    GIT_TAG        <exact-commit>
+    GIT_SUBMODULES ""
+)
+
+FetchContent_MakeAvailable(chaoxi)
 ```
 
 协程版包含 `Task<T>`、EventLoop 调度、异步定时器、AsyncFd、AsyncSocket、

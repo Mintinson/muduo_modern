@@ -18,4 +18,6 @@ add_subdirectory(roundtrip)
 
 add_subdirectory(hub)
 
+add_subdirectory(curl)
+
 add_executable(example_test test.cpp)
