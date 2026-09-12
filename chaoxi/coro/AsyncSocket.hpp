@@ -1,12 +1,12 @@
 #pragma once
 
 #include "chaoxi/net/InetAddress.hpp"
-#include "chaoxi/v2/AsyncFd.hpp"
+#include "chaoxi/coro/AsyncFd.hpp"
 
 #include <cstddef>
 #include <span>
 
-namespace chaoxi::v2
+namespace chaoxi::coro
 {
 
 class AsyncSocket
@@ -63,4 +63,4 @@ private:
     AsyncFd fd_;
 };
 
-}  // namespace chaoxi::v2
+}  // namespace chaoxi::coro

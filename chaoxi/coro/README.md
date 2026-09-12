@@ -1,23 +1,23 @@
-# chaoxi v2 coroutine API
+# chaoxi coro coroutine API
 
-`chaoxi::v2` 是构建在原有 `EventLoop`、`Channel` 和 Reactor 后端之上的
+`chaoxi::coro` 是构建在原有 `EventLoop`、`Channel` 和 Reactor 后端之上的
 无栈协程接口。Linux 使用 epoll，Windows 当前使用 `select`。它不会替换或
 修改现有 callback API，两套接口可以在同一进程中并存。
 
 ## 启用
 
-v2 默认不参与构建。配置时显式开启：
+coro 默认不参与构建。配置时显式开启：
 
 ```bash
-cmake -S . -B build-v2 \
-  -DCHAOXI_BUILD_V2=ON \
+cmake -S . -B build-coro \
+  -DCHAOXI_BUILD_CORO=ON \
   -DCHAOXI_BUILD_TESTS=ON
-cmake --build build-v2 -j
-ctest --test-dir build-v2 -R '^v2\.' --output-on-failure
+cmake --build build-coro -j
+ctest --test-dir build-coro -R '^coro\.' --output-on-failure
 ```
 
-开启后会生成 `chaoxi::v2` target，并通过其 PUBLIC usage requirements
-定义 `CHAOXI_HAS_V2=1`。`chaoxi::chaoxi` 汇总 target 也会自动链接 v2。
+开启后会生成 `chaoxi::coro` target，并通过其 PUBLIC usage requirements
+定义 `CHAOXI_HAS_coro=1`。`chaoxi::chaoxi` 汇总 target 也会自动链接 coro。
 
 ## API
 
@@ -35,7 +35,7 @@ ctest --test-dir build-v2 -R '^v2\.' --output-on-failure
 ```cpp
 using namespace chaoxi;
 
-v2::Task<void> echo(v2::AsyncSocket socket, net::InetAddress)
+coro::Task<void> echo(coro::AsyncSocket socket, net::InetAddress)
 {
     std::array<std::byte, 4096> buffer;
     while (true)
@@ -51,15 +51,15 @@ v2::Task<void> echo(v2::AsyncSocket socket, net::InetAddress)
 }
 
 net::EventLoop loop;
-v2::TcpServer server(
+coro::TcpServer server(
     loop,
     net::InetAddress{8080},
-    [](v2::AsyncSocket socket, net::InetAddress peer)
+    [](coro::AsyncSocket socket, net::InetAddress peer)
     {
         return echo(std::move(socket), std::move(peer));
     });
 
-v2::spawn(loop, server.run());
+coro::spawn(loop, server.run());
 loop.loop();
 ```
 
@@ -75,5 +75,5 @@ loop.loop();
 - `TcpServer::stop()` 是终止操作，停止后不能重新启动。
 - `TcpServer::stop()` 停止 accept，但不会强制取消或等待已经启动的连接 handler；
   应在这些 handler 结束后再销毁 EventLoop。
-- v2 暂未提供 `std::stop_token` 风格的通用取消树；关闭 fd/acceptor 会以
+- coro 暂未提供 `std::stop_token` 风格的通用取消树；关闭 fd/acceptor 会以
   `operation_canceled` 恢复挂起操作。

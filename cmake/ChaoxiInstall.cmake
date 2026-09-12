@@ -36,10 +36,10 @@ install(
     COMPONENT chaoxi_Development
 )
 
-if(TARGET chaoxi_v2)
+if(TARGET chaoxi_coro)
     install(
         TARGETS
-        chaoxi_v2
+        chaoxi_coro
 
         EXPORT
         chaoxiTargets
@@ -139,10 +139,10 @@ install(
 # Package config
 # ============================================================
 
-if(TARGET chaoxi_v2)
-    set(CHAOXI_PACKAGE_HAS_V2 ON)
+if(TARGET chaoxi_coro)
+    set(CHAOXI_PACKAGE_HAS_CORO ON)
 else()
-    set(CHAOXI_PACKAGE_HAS_V2 OFF)
+    set(CHAOXI_PACKAGE_HAS_CORO OFF)
 endif()
 
 configure_package_config_file(

@@ -4,7 +4,7 @@
 
 #include <coroutine>
 
-namespace chaoxi::v2
+namespace chaoxi::coro
 {
 
 class ScheduleOn
@@ -57,4 +57,4 @@ private:
     return YieldToEventLoop{loop};
 }
 
-}  // namespace chaoxi::v2
+}  // namespace chaoxi::coro

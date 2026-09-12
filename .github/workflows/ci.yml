@@ -28,7 +28,7 @@ jobs:
           CXX: g++-16
         run: >-
           cmake -S . -B build
-          -DCHAOXI_BUILD_V2=ON
+          -DCHAOXI_BUILD_CORO=ON
           -DCHAOXI_BUILD_EXAMPLES=ON
           -DCHAOXI_BUILD_TESTS=ON
           -DCHAOXI_BUILD_BENCHMARKS=OFF
@@ -38,7 +38,7 @@ jobs:
         if: runner.os == 'Windows'
         run: >-
           cmake -S . -B build
-          -DCHAOXI_BUILD_V2=ON
+          -DCHAOXI_BUILD_CORO=ON
           -DCHAOXI_BUILD_EXAMPLES=ON
           -DCHAOXI_BUILD_TESTS=ON
           -DCHAOXI_BUILD_BENCHMARKS=OFF

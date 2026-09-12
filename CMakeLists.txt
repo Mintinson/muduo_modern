@@ -15,7 +15,7 @@ endif()
 option(CHAOXI_BUILD_EXAMPLES "Build chaoxi examples" ${CHAOXI_DEVELOPER_DEFAULT})
 option(CHAOXI_BUILD_TESTS "Build chaoxi tests" ${CHAOXI_DEVELOPER_DEFAULT})
 option(CHAOXI_BUILD_BENCHMARKS "Build chaoxi benchmarks" ${CHAOXI_DEVELOPER_DEFAULT})
-option(CHAOXI_BUILD_V2 "Build the coroutine-based chaoxi v2 API" OFF)
+option(CHAOXI_BUILD_CORO "Build the coroutine-based chaoxi API" ON)
 option(CHAOXI_ENABLE_STRICT_WARNINGS "Enable strict compiler warnings for chaoxi targets" ${CHAOXI_DEVELOPER_DEFAULT})
 option(CHAOXI_WARNINGS_AS_ERRORS "Treat warnings as errors for chaoxi targets" ${CHAOXI_DEVELOPER_DEFAULT})
 
@@ -53,7 +53,7 @@ if(CHAOXI_INSTALL)
 endif()
 
 
-message(STATUS "chaoxi coroutine v2: ${CHAOXI_BUILD_V2}")
+message(STATUS "chaoxi coroutine coro: ${CHAOXI_BUILD_CORO}")
 
 
 # ============================================================

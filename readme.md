@@ -165,21 +165,21 @@ target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
 
 编译完成后，可根据 `examples/` 或 `tests/` 中对应的目标程序运行。
 
-## 协程 v2
+## 协程 coro
 
-项目提供可选的 `chaoxi::v2` 无栈协程接口，默认关闭，不影响原有 callback
+项目提供可选的 `chaoxi::coro` 无栈协程接口，默认关闭，不影响原有 callback
 版本。启用方式：
 
 ```bash
-cmake -S . -B build-v2 -DCHAOXI_BUILD_V2=ON
-cmake --build build-v2 -j
-ctest --test-dir build-v2 -R '^v2\.' --output-on-failure
+cmake -S . -B build-coro -DCHAOXI_BUILD_CORO=ON
+cmake --build build-coro -j
+ctest --test-dir build-coro -R '^coro\.' --output-on-failure
 ```
 
 或者作为第三方库：
 
 ```cmake
-set(CHAOXI_BUILD_V2 ON CACHE BOOL "" FORCE)
+set(CHAOXI_BUILD_CORO ON CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
     chaoxi
@@ -193,7 +193,7 @@ FetchContent_MakeAvailable(chaoxi)
 
 协程版包含 `Task<T>`、EventLoop 调度、异步定时器、AsyncFd、AsyncSocket、
 AsyncAcceptor 和协程 TcpServer。API、示例与生命周期约束见
-[`chaoxi/v2/README.md`](chaoxi/v2/README.md)。
+[`chaoxi/coro/README.md`](chaoxi/coro/README.md)。
 
 该选项在 Linux 和 Windows 上都可用。Windows 的协程网络 I/O 复用上述
 `select` 后端，因此 `AsyncFd` 在 Windows 上只接受 Winsock socket，且同样

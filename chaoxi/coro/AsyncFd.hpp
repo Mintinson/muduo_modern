@@ -1,7 +1,7 @@
 #pragma once
 
 #include "chaoxi/net/Platform.hpp"
-#include "chaoxi/v2/Task.hpp"
+#include "chaoxi/coro/Task.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -12,7 +12,7 @@ namespace chaoxi::net
 class EventLoop;
 }  // namespace chaoxi::net
 
-namespace chaoxi::v2
+namespace chaoxi::coro
 {
 
 enum class FdOwnership
@@ -68,4 +68,4 @@ private:
     std::shared_ptr<State> state_;
 };
 
-}  // namespace chaoxi::v2
+}  // namespace chaoxi::coro

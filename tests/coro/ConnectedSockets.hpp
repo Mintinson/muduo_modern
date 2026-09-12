@@ -9,7 +9,7 @@
 #include <system_error>
 #include <utility>
 
-namespace chaoxi::v2::test
+namespace chaoxi::coro::test
 {
 
 /// A connected TCP socket pair that works on both POSIX and Windows.
@@ -131,4 +131,4 @@ private:
         net::kInvalidSocket, net::kInvalidSocket};
 };
 
-}  // namespace chaoxi::v2::test
+}  // namespace chaoxi::coro::test

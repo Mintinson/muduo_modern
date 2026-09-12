@@ -19,8 +19,8 @@ set(_chaoxi_supported_components
     net
 )
 
-if("@CHAOXI_PACKAGE_HAS_V2@" STREQUAL "ON")
-    list(APPEND _chaoxi_supported_components v2)
+if("@CHAOXI_PACKAGE_HAS_CORO@" STREQUAL "ON")
+    list(APPEND _chaoxi_supported_components coro)
 endif()
 
 foreach(

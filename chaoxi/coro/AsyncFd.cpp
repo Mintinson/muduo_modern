@@ -1,4 +1,4 @@
-#include "chaoxi/v2/AsyncFd.hpp"
+#include "chaoxi/coro/AsyncFd.hpp"
 
 #include "chaoxi/net/Channel.hpp"
 #include "chaoxi/net/EventLoop.hpp"
@@ -11,7 +11,7 @@
 #include <system_error>
 #include <utility>
 
-namespace chaoxi::v2
+namespace chaoxi::coro
 {
 
 struct AsyncFd::State : std::enable_shared_from_this<State>
@@ -513,4 +513,4 @@ void AsyncFd::close()
     }
 }
 
-}  // namespace chaoxi::v2
+}  // namespace chaoxi::coro

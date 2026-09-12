@@ -1,8 +1,8 @@
 #include "chaoxi/net/EventLoop.hpp"
 #include "chaoxi/net/InetAddress.hpp"
-#include "chaoxi/v2/AsyncAcceptor.hpp"
-#include "chaoxi/v2/AsyncSocket.hpp"
-#include "chaoxi/v2/Spawn.hpp"
+#include "chaoxi/coro/AsyncAcceptor.hpp"
+#include "chaoxi/coro/AsyncSocket.hpp"
+#include "chaoxi/coro/Spawn.hpp"
 
 #include <array>
 #include <cerrno>
@@ -22,8 +22,8 @@ std::span<const std::byte> bytes(std::string_view value)
     return std::as_bytes(std::span{value.data(), value.size()});
 }
 
-chaoxi::v2::Task<void> runServer(chaoxi::net::EventLoop& loop,
-                                 chaoxi::v2::AsyncAcceptor& acceptor,
+chaoxi::coro::Task<void> runServer(chaoxi::net::EventLoop& loop,
+                                 chaoxi::coro::AsyncAcceptor& acceptor,
                                  int& completed)
 {
     auto connection = co_await acceptor.accept();
@@ -44,12 +44,12 @@ chaoxi::v2::Task<void> runServer(chaoxi::net::EventLoop& loop,
     }
 }
 
-chaoxi::v2::Task<void> runClient(chaoxi::net::EventLoop& loop,
+chaoxi::coro::Task<void> runClient(chaoxi::net::EventLoop& loop,
                                  chaoxi::net::InetAddress address,
                                  std::string& response,
                                  int& completed)
 {
-    auto socket = co_await chaoxi::v2::AsyncSocket::connect(loop, address);
+    auto socket = co_await chaoxi::coro::AsyncSocket::connect(loop, address);
     socket.setTcpNoDelay(true);
     co_await socket.writeAll(bytes("ping"));
 
@@ -65,13 +65,13 @@ chaoxi::v2::Task<void> runClient(chaoxi::net::EventLoop& loop,
     }
 }
 
-chaoxi::v2::Task<void> expectConnectionRefused(chaoxi::net::EventLoop& loop,
+chaoxi::coro::Task<void> expectConnectionRefused(chaoxi::net::EventLoop& loop,
                                                chaoxi::net::InetAddress address,
                                                bool& refused)
 {
     try
     {
-        auto socket = co_await chaoxi::v2::AsyncSocket::connect(loop, address);
+        auto socket = co_await chaoxi::coro::AsyncSocket::connect(loop, address);
         socket.close();
     }
     catch (const std::system_error& error)
@@ -81,10 +81,10 @@ chaoxi::v2::Task<void> expectConnectionRefused(chaoxi::net::EventLoop& loop,
     loop.quit();
 }
 
-TEST(V2AsyncSocketTest, ConnectAcceptAndExchangeData)
+TEST(CoroAsyncSocketTest, ConnectAcceptAndExchangeData)
 {
     chaoxi::net::EventLoop loop;
-    chaoxi::v2::AsyncAcceptor acceptor{
+    chaoxi::coro::AsyncAcceptor acceptor{
         loop, chaoxi::net::InetAddress{0, true}
     };
     const auto listenAddress = acceptor.localAddress();
@@ -98,8 +98,8 @@ TEST(V2AsyncSocketTest, ConnectAcceptAndExchangeData)
                       timedOut = true;
                       loop.quit();
                   });
-    chaoxi::v2::spawn(loop, runServer(loop, acceptor, completed));
-    chaoxi::v2::spawn(loop, runClient(loop, listenAddress, response, completed));
+    chaoxi::coro::spawn(loop, runServer(loop, acceptor, completed));
+    chaoxi::coro::spawn(loop, runClient(loop, listenAddress, response, completed));
     loop.loop();
 
     EXPECT_FALSE(timedOut);
@@ -107,10 +107,10 @@ TEST(V2AsyncSocketTest, ConnectAcceptAndExchangeData)
     EXPECT_EQ(response, "pong");
 }
 
-TEST(V2AsyncSocketTest, AcceptorUsesEphemeralLoopbackPort)
+TEST(CoroAsyncSocketTest, AcceptorUsesEphemeralLoopbackPort)
 {
     chaoxi::net::EventLoop loop;
-    chaoxi::v2::AsyncAcceptor acceptor{
+    chaoxi::coro::AsyncAcceptor acceptor{
         loop, chaoxi::net::InetAddress{0, true}
     };
 
@@ -121,17 +121,17 @@ TEST(V2AsyncSocketTest, AcceptorUsesEphemeralLoopbackPort)
     EXPECT_NE(address.port(), 0);
 }
 
-TEST(V2AsyncSocketTest, ConnectPropagatesSocketError)
+TEST(CoroAsyncSocketTest, ConnectPropagatesSocketError)
 {
     chaoxi::net::EventLoop loop;
-    chaoxi::v2::AsyncAcceptor temporary{
+    chaoxi::coro::AsyncAcceptor temporary{
         loop, chaoxi::net::InetAddress{0, true}
     };
     const auto unusedAddress = temporary.localAddress();
     temporary.close();
     bool refused = false;
 
-    chaoxi::v2::spawn(loop,
+    chaoxi::coro::spawn(loop,
                       expectConnectionRefused(loop, unusedAddress, refused));
     loop.loop();
 

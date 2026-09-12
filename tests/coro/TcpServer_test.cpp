@@ -1,8 +1,8 @@
 #include "chaoxi/net/EventLoop.hpp"
 #include "chaoxi/net/InetAddress.hpp"
-#include "chaoxi/v2/AsyncSocket.hpp"
-#include "chaoxi/v2/Spawn.hpp"
-#include "chaoxi/v2/TcpServer.hpp"
+#include "chaoxi/coro/AsyncSocket.hpp"
+#include "chaoxi/coro/Spawn.hpp"
+#include "chaoxi/coro/TcpServer.hpp"
 
 #include <array>
 #include <cstddef>
@@ -22,7 +22,7 @@ std::span<const std::byte> bytes(std::string_view value)
     return std::as_bytes(std::span{value.data(), value.size()});
 }
 
-chaoxi::v2::Task<void> echoOnce(chaoxi::v2::AsyncSocket socket, bool& handled)
+chaoxi::coro::Task<void> echoOnce(chaoxi::coro::AsyncSocket socket, bool& handled)
 {
     std::array<char, 5> request{};
     co_await socket.readExactly(std::as_writable_bytes(std::span{request}));
@@ -31,8 +31,8 @@ chaoxi::v2::Task<void> echoOnce(chaoxi::v2::AsyncSocket socket, bool& handled)
     handled = true;
 }
 
-chaoxi::v2::Task<void> runUntilStopped(chaoxi::net::EventLoop& loop,
-                                       chaoxi::v2::TcpServer& server,
+chaoxi::coro::Task<void> runUntilStopped(chaoxi::net::EventLoop& loop,
+                                       chaoxi::coro::TcpServer& server,
                                        bool& stopped)
 {
     co_await server.run();
@@ -40,12 +40,12 @@ chaoxi::v2::Task<void> runUntilStopped(chaoxi::net::EventLoop& loop,
     loop.quit();
 }
 
-chaoxi::v2::Task<void> runClient(chaoxi::net::EventLoop& loop,
+chaoxi::coro::Task<void> runClient(chaoxi::net::EventLoop& loop,
                                  chaoxi::net::InetAddress address,
-                                 chaoxi::v2::TcpServer& server,
+                                 chaoxi::coro::TcpServer& server,
                                  std::string& response)
 {
-    auto socket = co_await chaoxi::v2::AsyncSocket::connect(loop, address);
+    auto socket = co_await chaoxi::coro::AsyncSocket::connect(loop, address);
     co_await socket.writeAll(bytes("hello"));
 
     std::array<char, 5> buffer{};
@@ -54,19 +54,19 @@ chaoxi::v2::Task<void> runClient(chaoxi::net::EventLoop& loop,
     server.stop();
 }
 
-chaoxi::v2::Task<void> failConnection(chaoxi::v2::AsyncSocket)
+chaoxi::coro::Task<void> failConnection(chaoxi::coro::AsyncSocket)
 {
     throw std::runtime_error("connection handler failure");
     co_return;
 }
 
-chaoxi::v2::Task<void> connectOnly(chaoxi::net::EventLoop& loop,
+chaoxi::coro::Task<void> connectOnly(chaoxi::net::EventLoop& loop,
                                    chaoxi::net::InetAddress address)
 {
-    auto socket = co_await chaoxi::v2::AsyncSocket::connect(loop, address);
+    auto socket = co_await chaoxi::coro::AsyncSocket::connect(loop, address);
 }
 
-TEST(V2TcpServerTest, RunsCoroutineConnectionHandler)
+TEST(CoroTcpServerTest, RunsCoroutineConnectionHandler)
 {
     chaoxi::net::EventLoop loop;
     bool handled = false;
@@ -74,9 +74,9 @@ TEST(V2TcpServerTest, RunsCoroutineConnectionHandler)
     bool timedOut = false;
     std::string response;
 
-    chaoxi::v2::TcpServer server{
+    chaoxi::coro::TcpServer server{
         loop, chaoxi::net::InetAddress{0, true},
-        [&handled](chaoxi::v2::AsyncSocket socket,
+        [&handled](chaoxi::coro::AsyncSocket socket,
                    const chaoxi::net::InetAddress&)
         { return echoOnce(std::move(socket), handled);    }
     };
@@ -87,8 +87,8 @@ TEST(V2TcpServerTest, RunsCoroutineConnectionHandler)
                       timedOut = true;
                       server.stop();
                   });
-    chaoxi::v2::spawn(loop, runUntilStopped(loop, server, stopped));
-    chaoxi::v2::spawn(loop,
+    chaoxi::coro::spawn(loop, runUntilStopped(loop, server, stopped));
+    chaoxi::coro::spawn(loop,
                       runClient(loop, server.localAddress(), server, response));
     loop.loop();
 
@@ -99,14 +99,14 @@ TEST(V2TcpServerTest, RunsCoroutineConnectionHandler)
     EXPECT_EQ(response, "hello");
 }
 
-TEST(V2TcpServerTest, ForwardsConnectionHandlerErrors)
+TEST(CoroTcpServerTest, ForwardsConnectionHandlerErrors)
 {
     chaoxi::net::EventLoop loop;
     bool errorHandled = false;
     bool stopped = false;
-    chaoxi::v2::TcpServer server{
+    chaoxi::coro::TcpServer server{
         loop, chaoxi::net::InetAddress{0, true},
-        [](chaoxi::v2::AsyncSocket socket, const chaoxi::net::InetAddress&)
+        [](chaoxi::coro::AsyncSocket socket, const chaoxi::net::InetAddress&)
         { return failConnection(std::move(socket)); }
     };
     server.setErrorHandler(
@@ -123,8 +123,8 @@ TEST(V2TcpServerTest, ForwardsConnectionHandlerErrors)
             server.stop();
         });
 
-    chaoxi::v2::spawn(loop, runUntilStopped(loop, server, stopped));
-    chaoxi::v2::spawn(loop, connectOnly(loop, server.localAddress()));
+    chaoxi::coro::spawn(loop, runUntilStopped(loop, server, stopped));
+    chaoxi::coro::spawn(loop, connectOnly(loop, server.localAddress()));
     loop.loop();
 
     EXPECT_TRUE(errorHandled);

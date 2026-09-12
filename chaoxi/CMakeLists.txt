@@ -280,9 +280,9 @@ set_target_properties(
 
 
 # ==========================
-# 4. V2 (Optional)
+# 4. Coro (Optional)
 # ==========================
-if(CHAOXI_BUILD_V2)
-    add_subdirectory(v2)
-    target_link_libraries(chaoxi INTERFACE chaoxi::v2)
+if(CHAOXI_BUILD_CORO)
+    add_subdirectory(coro)
+    target_link_libraries(chaoxi INTERFACE chaoxi::coro)
 endif()

@@ -1,4 +1,4 @@
-#include "chaoxi/v2/AsyncSocket.hpp"
+#include "chaoxi/coro/AsyncSocket.hpp"
 
 #include "chaoxi/net/EventLoop.hpp"
 #include "chaoxi/net/SocketOps.hpp"
@@ -13,7 +13,7 @@
 #include <netinet/tcp.h>
 #endif
 
-namespace chaoxi::v2
+namespace chaoxi::coro
 {
 AsyncSocket::AsyncSocket(net::EventLoop& loop, net::SocketHandle fd)
     : fd_(loop, fd, FdOwnership::owned)
@@ -98,4 +98,4 @@ void AsyncSocket::setKeepAlive(bool enabled)
     }
 }
 
-}  // namespace chaoxi::v2
+}  // namespace chaoxi::coro

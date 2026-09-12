@@ -1,6 +1,6 @@
 #include "chaoxi/net/EventLoop.hpp"
-#include "chaoxi/v2/Sleep.hpp"
-#include "chaoxi/v2/Spawn.hpp"
+#include "chaoxi/coro/Sleep.hpp"
+#include "chaoxi/coro/Spawn.hpp"
 
 #include <chrono>
 #include <vector>
@@ -12,20 +12,20 @@ namespace
 
 using namespace std::chrono_literals;
 
-chaoxi::v2::Task<void> sleepAndFinish(chaoxi::net::EventLoop& loop,
+chaoxi::coro::Task<void> sleepAndFinish(chaoxi::net::EventLoop& loop,
                                       bool& completed)
 {
-    co_await chaoxi::v2::sleepFor(loop, 2ms);
+    co_await chaoxi::coro::sleepFor(loop, 2ms);
     completed = true;
     loop.quit();
 }
 
-chaoxi::v2::Task<void> recordAfter(chaoxi::net::EventLoop& loop,
+chaoxi::coro::Task<void> recordAfter(chaoxi::net::EventLoop& loop,
                                    std::chrono::milliseconds delay,
                                    int value,
                                    std::vector<int>& order)
 {
-    co_await chaoxi::v2::sleepFor(loop, delay);
+    co_await chaoxi::coro::sleepFor(loop, delay);
     order.push_back(value);
     if (order.size() == 2)
     {
@@ -33,7 +33,7 @@ chaoxi::v2::Task<void> recordAfter(chaoxi::net::EventLoop& loop,
     }
 }
 
-TEST(V2SleepTest, ResumesAfterDeadline)
+TEST(CoroSleepTest, ResumesAfterDeadline)
 {
     chaoxi::net::EventLoop loop;
     bool completed = false;
@@ -45,14 +45,14 @@ TEST(V2SleepTest, ResumesAfterDeadline)
                       loop.quit();
                   });
 
-    chaoxi::v2::spawn(loop, sleepAndFinish(loop, completed));
+    chaoxi::coro::spawn(loop, sleepAndFinish(loop, completed));
     loop.loop();
 
     EXPECT_TRUE(completed);
     EXPECT_FALSE(timedOut);
 }
 
-TEST(V2SleepTest, PreservesDeadlineOrder)
+TEST(CoroSleepTest, PreservesDeadlineOrder)
 {
     chaoxi::net::EventLoop loop;
     std::vector<int> order;
@@ -64,8 +64,8 @@ TEST(V2SleepTest, PreservesDeadlineOrder)
                       loop.quit();
                   });
 
-    chaoxi::v2::spawn(loop, recordAfter(loop, 10ms, 2, order));
-    chaoxi::v2::spawn(loop, recordAfter(loop, 1ms, 1, order));
+    chaoxi::coro::spawn(loop, recordAfter(loop, 10ms, 2, order));
+    chaoxi::coro::spawn(loop, recordAfter(loop, 1ms, 1, order));
     loop.loop();
 
     EXPECT_FALSE(timedOut);

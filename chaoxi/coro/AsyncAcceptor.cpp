@@ -1,4 +1,4 @@
-#include "chaoxi/v2/AsyncAcceptor.hpp"
+#include "chaoxi/coro/AsyncAcceptor.hpp"
 
 #include "chaoxi/net/Channel.hpp"
 #include "chaoxi/net/EventLoop.hpp"
@@ -12,7 +12,7 @@
 #include <system_error>
 #include <utility>
 
-namespace chaoxi::v2
+namespace chaoxi::coro
 {
 struct AsyncAcceptor::State : std::enable_shared_from_this<State>
 {
@@ -202,8 +202,8 @@ struct AsyncAcceptor::State : std::enable_shared_from_this<State>
         while (true)
         {
             sockaddr_in6 peer{};
-            const net::SocketHandle connectionFd = net::sockets::accept(
-                fd_.load(std::memory_order_acquire), &peer);
+            const net::SocketHandle connectionFd =
+                net::sockets::accept(fd_.load(std::memory_order_acquire), &peer);
             if (connectionFd != net::kInvalidSocket)
             {
                 deliver(PendingConnection{connectionFd, net::InetAddress{peer}});
@@ -380,4 +380,4 @@ void AsyncAcceptor::close()
     }
 }
 
-}  // namespace chaoxi::v2
+}  // namespace chaoxi::coro
