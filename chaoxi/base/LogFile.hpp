@@ -8,7 +8,7 @@
 ///   - 按大小滚动：当 writtenBytes > rollSize_ 时切新文件
 ///   - 按天滚动：每 checkEveryN 条日志检查是否跨天，跨天则切新文件
 ///   - 线程安全：可选 std::mutex 保护（构造参数 threadSafe）
-///   - 延迟 flush：每 checkEveryN 条日志检查是否需要 flush（按 flushInterval_
+///   - 延迟刷新：每 checkEveryN 条日志按 flushInterval_ 检查是否需要刷新
 ///   秒间隔）
 ///   - 文件命名：basename.YYYYMMDD-HHMMSS.hostname.pid.log
 ///
@@ -32,8 +32,8 @@ public:
     /// @param basename      日志文件基本名（不含路径，不含扩展名）
     /// @param rollSize      文件大小滚动阈值（字节）
     /// @param threadSafe    是否加锁（默认 true）
-    /// @param flushInterval flush 间隔秒数（默认 3）
-    /// @param checkEveryN   每 N 条日志检查一次滚动/flush（默认 1024）
+    /// @param flushInterval 刷新间隔秒数（默认 3）
+    /// @param checkEveryN   每 N 条日志检查一次滚动或刷新（默认 1024）
     LogFile(std::string basename,
             std::size_t rollSize,
             bool threadSafe = true,
@@ -48,8 +48,11 @@ public:
     /// 追加一条日志（线程安全视构造参数而定）
     void append(std::string_view logline);
 
-    /// 强制 flush 到磁盘
+    /// 强制刷新用户态缓冲。
     void flush();
+
+    /// 刷新用户态缓冲，并同步等待文件内容持久化到存储设备。
+    [[nodiscard]] bool sync();
 
     /// 手动触发文件滚动（创建新日志文件）
     bool rollFile();
@@ -72,7 +75,7 @@ private:
     std::chrono::system_clock::time_point
         startOfPeriod_{};  ///< 当前日志文件所属的日期起点
     std::chrono::system_clock::time_point lastRoll_{};   ///< 上次滚动时间
-    std::chrono::system_clock::time_point lastFlush_{};  ///< 上次 flush 时间
+    std::chrono::system_clock::time_point lastFlush_{};  ///< 上次刷新时间
 
     std::unique_ptr<file_util::AppendFile> file_;  ///< 当前日志文件的写入句柄
 };

@@ -6,9 +6,8 @@
 #include <filesystem>
 #include <string_view>
 
-
 namespace chaoxi::file_util
-{  // not thread safe
+{  // 本命名空间中的文件对象本身不提供线程安全保证
 
 struct FileMetaData
 {
@@ -23,17 +22,12 @@ struct ReadResult
     FileMetaData meta;
 };
 
-/**
- * @brief
- *
- * @param filename
- * @param maxSize
- * @return std::expected<ReadResult, std::error_code>
- */
+/// 读取小文件及其元数据。
+/// @param filename 文件路径。
+/// @param maxSize 最多读取的字节数。
+/// @return 成功时返回内容和元数据，失败时返回系统错误码。
 [[nodiscard]] std::expected<ReadResult, std::error_code> readSmallFile(
     const std::filesystem::path& filename, size_t maxSize = 64 * 1024);
-
-
 
 class AppendFile
 {
@@ -53,6 +47,9 @@ public:
     void append(std::string_view logline);
 
     void flush();
+
+    /// 刷新用户态缓冲，并请求操作系统将文件内容同步到存储设备。
+    [[nodiscard]] bool sync();
 
     [[nodiscard]] std::size_t writtenBytes() const noexcept
     {

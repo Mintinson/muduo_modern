@@ -46,3 +46,14 @@ target_link_libraries(Buffer_bench PRIVATE chaoxi::net benchmark::benchmark_main
 
 add_executable(Http_bench net/Http_bench.cpp)
 target_link_libraries(Http_bench PRIVATE chaoxi::net benchmark::benchmark_main)
+
+add_executable(EventLoopQueue_bench net/EventLoopQueue_bench.cpp)
+target_link_libraries(EventLoopQueue_bench PRIVATE chaoxi::net benchmark::benchmark_main)
+
+add_executable(TimerQueue_bench net/TimerQueue_bench.cpp)
+target_link_libraries(TimerQueue_bench PRIVATE chaoxi::net benchmark::benchmark_main)
+
+if(NOT WIN32)
+  add_executable(TcpRoundtrip_bench net/TcpRoundtrip_bench.cpp)
+  target_link_libraries(TcpRoundtrip_bench PRIVATE chaoxi::net benchmark::benchmark_main)
+endif()

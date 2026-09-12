@@ -1,6 +1,6 @@
 ///
 /// @file LogFile.cpp
-/// @brief LogFile 实现 —— 自动滚动 + 延迟 flush 的日志文件写入器
+/// @brief LogFile 实现 —— 支持自动滚动和延迟刷新的日志文件写入器
 ///
 
 #include "chaoxi/base/LogFile.hpp"
@@ -64,16 +64,26 @@ void LogFile::flush()
     }
 }
 
+bool LogFile::sync()
+{
+    if (mutex_)
+    {
+        std::scoped_lock lock(*mutex_);
+        return file_->sync();
+    }
+    return file_->sync();
+}
+
 ///
-/// 核心写入逻辑：写入数据 → 检查是否需要滚动 → 检查是否需要 flush
+/// 核心写入逻辑：写入数据 → 检查是否需要滚动 → 检查是否需要刷新
 ///
 /// 滚动触发条件（满足任一即触发）：
 ///   1. 文件已写字节数 > rollSize_（大小滚动）
 ///   2. 日志跨天了（日期滚动）—— 每 checkEveryN_ 条日志才检查一次以降低开销
 ///
-/// flush 触发条件：
-///   - 每 checkEveryN_ 条日志时检查，距上次 flush 超过 flushInterval_ 秒则 flush
-///   - 注意：发生滚动时自动 flush（新文件自然为空），不需额外检查
+/// 刷新触发条件：
+///   - 每 checkEveryN_ 条日志检查一次，距上次刷新超过 flushInterval_ 秒则刷新
+///   - 注意：滚动时会自动刷新，因而不需要额外检查
 ///
 void LogFile::append_unlocked(std::string_view logline)
 {
@@ -89,7 +99,7 @@ void LogFile::append_unlocked(std::string_view logline)
         ++count_;
         if (count_ >= checkEveryN_)
         {
-            // 每 N 条日志检查一次日期和 flush
+            // 每 N 条日志检查一次日期和刷新条件。
             count_ = 0;
             auto now = std::chrono::system_clock::now();
             auto thisPeriod = std::chrono::floor<std::chrono::days>(now);
@@ -101,7 +111,7 @@ void LogFile::append_unlocked(std::string_view logline)
             }
             else if (now - lastFlush_ > std::chrono::seconds(flushInterval_))
             {
-                // 还没跨天，但距上次 flush 太久 → flush
+                // 尚未跨天，但距上次刷新时间过久，应立即刷新。
                 lastFlush_ = now;
                 file_->flush();
             }

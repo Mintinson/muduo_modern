@@ -1,102 +1,139 @@
 #include "chaoxi/base/AsyncLogging.hpp"
-#include "chaoxi/base/Logging.hpp"
 
+#include <atomic>
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <latch>
 #include <string>
 #include <string_view>
+#include <thread>
+#include <vector>
 
 #include <benchmark/benchmark.h>
 
-using namespace chaoxi;
-
-// ============================================================================
-// 全局桥接：让 Logger 的输出重定向到我们的 AsyncLogging 实例
-// ============================================================================
-static AsyncLogging* g_asyncLog = nullptr;
-
-void asyncOutput(std::string_view msg)
+namespace
 {
-    if (g_asyncLog)
+
+constexpr std::size_t kMessagesPerProducer = 25'000;
+constexpr std::string_view kMessage =
+    "This is a deterministic asynchronous log record used to measure durable "
+    "end-to-end throughput. 0123456789\n";
+
+[[nodiscard]] std::filesystem::path outputDirectory()
+{
+    if (const char* directory = std::getenv("CHAOXI_BENCHMARK_LOG_DIR"))
     {
-        g_asyncLog->append(msg);
+        return directory;
+    }
+    return std::filesystem::temp_directory_path();
+}
+
+[[nodiscard]] std::uintmax_t fileBytesWithPrefix(
+    const std::filesystem::path& directory, std::string_view prefix)
+{
+    std::uintmax_t bytes = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(directory))
+    {
+        if (entry.path().filename().string().starts_with(prefix))
+        {
+            bytes += entry.file_size();
+        }
+    }
+    return bytes;
+}
+
+void removeFilesWithPrefix(const std::filesystem::path& directory,
+                           std::string_view prefix)
+{
+    for (const auto& entry : std::filesystem::directory_iterator(directory))
+    {
+        if (entry.path().filename().string().starts_with(prefix))
+        {
+            std::filesystem::remove(entry.path());
+        }
     }
 }
 
-void asyncFlush() {}  // 异步日志不需要同步 flush
-
-// ============================================================================
-// 测试夹具 (Fixture)：管理 AsyncLogging 的生命周期
-// ============================================================================
-class AsyncLoggingFixture : public benchmark::Fixture
+void BM_AsyncLogging_EndToEnd(benchmark::State& state)
 {
-public:
-    void SetUp(benchmark::State& state) override
-    {
-        // 保证多线程测试时，只有第一个线程去初始化后端
-        if (state.thread_index() == 0)
-        {
-            // 滚动大小设为 1GB，避免压测期间频繁切文件
-            asyncLog_ = std::make_unique<AsyncLogging>(
-                "/tmp/async_logging_bench", 1024 * 1024 * 1024);
-            asyncLog_->start();
-            g_asyncLog = asyncLog_.get();
-            Logger::setOutput(asyncOutput);
-            Logger::setFlush(asyncFlush);
-        }
-    }
-
-    void TearDown(benchmark::State& state) override
-    {
-        // 保证所有线程跑完后，由最后一个退出的线程负责停止和清理
-        if (state.thread_index() == 0)
-        {
-            g_asyncLog = nullptr;
-            asyncLog_->stop();  // 等待后端将队列中的数据全部落盘
-            asyncLog_.reset();
-        }
-    }
-
-    static std::unique_ptr<AsyncLogging> asyncLog_;
-};
-
-std::unique_ptr<AsyncLogging> AsyncLoggingFixture::asyncLog_ = nullptr;
-
-// ============================================================================
-// Benchmark: 单线程异步写入
-// ============================================================================
-BENCHMARK_F(AsyncLoggingFixture, SingleThread)(benchmark::State& state)
-{
-    // 构造一条长约 100 字节的消息
-    std::string_view msg = "This is a standard log message meant to simulate "
-                           "typical business logic output length. 1234567890";
+    const auto producerCount = static_cast<std::size_t>(state.range(0));
+    const auto directory = outputDirectory();
+    std::uint64_t totalMessages = 0;
+    std::uint64_t totalBytes = 0;
+    std::uint64_t totalDropped = 0;
+    static std::atomic<std::uint64_t> sequence{};
 
     for (auto _ : state)
     {
-        LOG_INFO << msg;
+        state.PauseTiming();
+        const auto prefix =
+            "async_logging_bench_" +
+            std::to_string(sequence.fetch_add(1, std::memory_order_relaxed));
+        const auto basename = (directory / prefix).string();
+        chaoxi::AsyncLogging log(basename, 1024ULL * 1024 * 1024);
+        log.start();
+
+        std::latch ready{static_cast<std::ptrdiff_t>(producerCount)};
+        std::latch start{1};
+        std::vector<std::jthread> producers;
+        producers.reserve(producerCount);
+        for (std::size_t producer = 0; producer < producerCount; ++producer)
+        {
+            producers.emplace_back(
+                [&]
+                {
+                    ready.count_down();
+                    start.wait();
+                    for (std::size_t message = 0; message < kMessagesPerProducer;
+                         ++message)
+                    {
+                        log.append(kMessage);
+                    }
+                });
+        }
+        ready.wait();
+
+        state.ResumeTiming();
+        const auto started = std::chrono::steady_clock::now();
+        start.count_down();
+        producers.clear();
+        log.stop();
+        const auto elapsed = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - started);
+        state.SetIterationTime(elapsed.count());
+        state.PauseTiming();
+
+        const auto statistics = log.statistics();
+        const auto fileBytes = fileBytesWithPrefix(directory, prefix);
+        const auto expectedMessages = producerCount * kMessagesPerProducer;
+        const auto expectedBytes = expectedMessages * kMessage.size();
+        if (statistics.acceptedMessages != expectedMessages ||
+            statistics.acceptedBytes != expectedBytes ||
+            statistics.writtenMessages != expectedMessages ||
+            statistics.writtenBytes != expectedBytes ||
+            statistics.droppedMessages != 0 || fileBytes != expectedBytes)
+        {
+            state.SkipWithError("接收、写入和文件字节数不一致");
+        }
+
+        totalMessages += statistics.writtenMessages;
+        totalBytes += statistics.writtenBytes;
+        totalDropped += statistics.droppedMessages;
+        removeFilesWithPrefix(directory, prefix);
+        state.ResumeTiming();
     }
 
-    // 统计每秒处理的消息数和吞吐量 (加上时间戳等 header 大约 140 字节)
-    state.SetItemsProcessed(state.iterations());
-    state.SetBytesProcessed(state.iterations() * 140);
+    state.SetItemsProcessed(static_cast<std::int64_t>(totalMessages));
+    state.SetBytesProcessed(static_cast<std::int64_t>(totalBytes));
+    state.counters["dropped_messages"] = static_cast<double>(totalDropped);
 }
 
-// ============================================================================
-// Benchmark: 多线程高并发异步写入 (测试锁竞争)
-// ============================================================================
-BENCHMARK_F(AsyncLoggingFixture, MultiThread)(benchmark::State& state)
-{
-    std::string_view msg =
-        "This is a standard log message meant to simulate typical "
-        "business logic output length. 1234567890";
+BENCHMARK(BM_AsyncLogging_EndToEnd)
+    ->ArgName("producers")
+    ->Arg(1)
+    ->Arg(4)
+    ->Arg(8)
+    ->UseManualTime();
 
-    for (auto _ : state)
-    {
-        LOG_INFO << msg;
-    }
-
-    state.SetItemsProcessed(state.iterations());
-    state.SetBytesProcessed(state.iterations() * 140);
-}
-
-// 模拟 4 个和 8 个业务线程同时写日志的场景
-BENCHMARK_REGISTER_F(AsyncLoggingFixture, MultiThread)->Threads(4);
-BENCHMARK_REGISTER_F(AsyncLoggingFixture, MultiThread)->Threads(8);
+}  // namespace

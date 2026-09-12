@@ -7,3 +7,5 @@ compile_commands.json
 .claude/
 
 docs/
+# Generated performance-baseline artifacts
+benchmark/results/

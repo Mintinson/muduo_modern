@@ -1,128 +1,166 @@
-///
-/// @file Logging_throughput_bench.cpp
-/// @brief 测试 Logger 端到端吞吐量 (Msg/s & MiB/s)
-///
-
 #include "chaoxi/base/LogFile.hpp"
 #include "chaoxi/base/Logging.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
-#include <iostream>
+#include <cstdlib>
+#include <filesystem>
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
 #include <fcntl.h>
 #include <unistd.h>
 
-using namespace chaoxi;
-
-// 全局变量用于统计写入的总字节数
-static uint64_t g_totalBytes = 0;
-static int g_nullFd = -1;
-static std::unique_ptr<LogFile> g_logFile;
-
-// ============================================================================
-// 1. Nop Output (纯 CPU 格式化，丢弃数据)
-// ============================================================================
-void nopOutput(std::string_view msg)
+namespace
 {
-    g_totalBytes += msg.size();
+
+std::uint64_t g_totalBytes = 0;
+int g_nullFd = -1;
+std::unique_ptr<chaoxi::LogFile> g_logFile;
+
+void nopOutput(std::string_view message)
+{
+    g_totalBytes += message.size();
 }
 
-// ============================================================================
-// 2. /dev/null Output (加上系统调用的开销)
-// ============================================================================
-void nullOutput(std::string_view msg)
+void nullOutput(std::string_view message)
 {
-    g_totalBytes += msg.size();
+    g_totalBytes += message.size();
     if (g_nullFd >= 0)
     {
-        ::write(g_nullFd, msg.data(), msg.size());
+        (void)::write(g_nullFd, message.data(), message.size());
     }
 }
 
-// ============================================================================
-// 3. File Output (实际落盘，通过 LogFile)
-// ============================================================================
-void fileOutput(std::string_view msg)
+void fileOutput(std::string_view message)
 {
-    g_totalBytes += msg.size();
-    if (g_logFile)
-    {
-        // 你的 LogFile 默认构造是 threadSafe=true，为了测单线程极限可以设为
-        // false
-        g_logFile->append(msg);
-    }
+    g_totalBytes += message.size();
+    g_logFile->append(message);
 }
 
-// 统一的占位 Flush 函数
 void dummyFlush() {}
 
-// ============================================================================
-// 测试执行引擎
-// ============================================================================
-void bench(const char* type, Logger::OutputFunc outputFunc)
+bool noFinalize()
 {
-    Logger::setOutput(outputFunc);
-    Logger::setFlush(dummyFlush);
+    return true;
+}
+
+bool flushFile()
+{
+    g_logFile->flush();
+    return true;
+}
+
+bool syncFile()
+{
+    return g_logFile->sync();
+}
+
+using Finalize = bool (*)();
+
+void bench(std::string_view type,
+           chaoxi::Logger::OutputFunc output,
+           Finalize finalize)
+{
+    chaoxi::Logger::setOutput(output);
+    chaoxi::Logger::setFlush(dummyFlush);
     g_totalBytes = 0;
-
-    const int kBatchSize = 1000'000;  // 每次测试 100 万条日志
-
-    // 构造一条日志负载，使其最终生成的长度接近 110 字节
-    // Header 约占 40-50 字节 (日期, 线程id, 级别, 源文件)
-    // 加上 msg 约 60 字节，正好达到 110 字节左右
-    constexpr std::string_view msg =
+    constexpr int kBatchSize = 1'000'000;
+    constexpr std::string_view message =
         "123456789012345678901234567890123456789012345678901234567890";
 
-    auto start = std::chrono::high_resolution_clock::now();
-
-    for (int i = 0; i < kBatchSize; ++i)
+    const auto start = std::chrono::steady_clock::now();
+    for (int index = 0; index < kBatchSize; ++index)
     {
-        LOG_INFO << msg << ' ' << i;
+        LOG_INFO << message << ' ' << index;
     }
+    if (!finalize())
+    {
+        throw std::runtime_error("基准日志文件持久化失败");
+    }
+    const std::chrono::duration<double> elapsed =
+        std::chrono::steady_clock::now() - start;
+    const auto messagesPerSecond = kBatchSize / elapsed.count();
+    const auto mebibytesPerSecond =
+        g_totalBytes / elapsed.count() / (1024.0 * 1024.0);
 
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> diff = end - start;
-    double seconds = diff.count();
-
-    // 计算吞吐量
-    double msg_per_sec = kBatchSize / seconds;
-    double bytes_per_sec = g_totalBytes / seconds;
-    double mib_per_sec = bytes_per_sec / (1024.0 * 1024.0);
-
-    std::printf("%-15s | %7.1f w | %7.1f MiB/s | Avg Len: %zu bytes\n", type,
-                msg_per_sec / 10000.0,  // 转换为 "万(w)/秒"
-                mib_per_sec, g_totalBytes / kBatchSize);
+    std::printf("%-15.*s | %7.1f w | %7.1f MiB/s | 平均长度：%zu 字节\n",
+                static_cast<int>(type.size()), type.data(),
+                messagesPerSecond / 10'000.0, mebibytesPerSecond,
+                g_totalBytes / kBatchSize);
 }
+
+[[nodiscard]] std::filesystem::path directoryFromEnvironment(
+    const char* variable, const std::filesystem::path& fallback)
+{
+    if (const char* value = std::getenv(variable))
+    {
+        return value;
+    }
+    return fallback;
+}
+
+void removeFilesWithPrefix(const std::filesystem::path& directory,
+                           std::string_view prefix)
+{
+    for (const auto& entry : std::filesystem::directory_iterator(directory))
+    {
+        if (entry.path().filename().string().starts_with(prefix))
+        {
+            std::filesystem::remove(entry.path());
+        }
+    }
+}
+
+void benchFile(std::string_view label,
+               const std::filesystem::path& directory,
+               Finalize finalize)
+{
+    std::filesystem::create_directories(directory);
+    const auto prefix = std::string(label) + "_log_bench";
+    const auto basename = (directory / prefix).string();
+    g_logFile = std::make_unique<chaoxi::LogFile>(basename,
+                                                  1024ULL * 1024 * 1024, false);
+    bench(label, fileOutput, finalize);
+    g_logFile.reset();
+    removeFilesWithPrefix(directory, prefix);
+}
+
+}  // namespace
 
 int main()
 {
     std::printf(
         "==============================================================\n");
-    std::printf("Target          | Messages/s | Bandwidth   | Msg Info\n");
+    std::printf("目标场景        | 消息数/秒   | 带宽        | 消息信息\n");
     std::printf(
         "--------------------------------------------------------------\n");
 
-    // 1. 测试纯格式化开销
-    bench("nop", nopOutput);
+    bench("nop", nopOutput, noFinalize);
 
-    // 2. 测试 /dev/null
-    g_nullFd = ::open("/dev/null", O_WRONLY);
+    g_nullFd = ::open("/dev/null", O_WRONLY | O_CLOEXEC);
     if (g_nullFd >= 0)
     {
-        bench("/dev/null", nullOutput);
-        ::close(g_nullFd);
+        bench("/dev/null", nullOutput, noFinalize);
+        (void)::close(g_nullFd);
     }
 
-    // 3. 测试文件 IO (使用你编写的 LogFile，关闭 threadSafe 测试单线程极限)
-    // rollSize 设为 1GB 避免在测试中途发生滚动影响成绩
-    g_logFile =
-        std::make_unique<LogFile>("/tmp/log_bench", 1024 * 1024 * 1024, false);
-    bench("/tmp/log", fileOutput);
+    const auto temporary = std::filesystem::temp_directory_path();
+    const auto tmpfs = directoryFromEnvironment(
+        "CHAOXI_BENCHMARK_TMPFS_DIR",
+        std::filesystem::exists("/dev/shm") ? "/dev/shm" : temporary);
+    const auto pageCache = directoryFromEnvironment(
+        "CHAOXI_BENCHMARK_PAGE_CACHE_DIR", std::filesystem::current_path());
+    const auto fsync =
+        directoryFromEnvironment("CHAOXI_BENCHMARK_FSYNC_DIR", pageCache);
+
+    benchFile("tmpfs", tmpfs, flushFile);
+    benchFile("page-cache", pageCache, flushFile);
+    benchFile("fsync", fsync, syncFile);
 
     std::printf(
         "==============================================================\n");
-    return 0;
 }

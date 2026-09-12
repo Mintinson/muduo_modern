@@ -1,131 +1,11 @@
-// #include "chaoxi/base/BlockingQueue.hpp"
-// #include "chaoxi/base/CurrentThread.hpp"
-// #include "chaoxi/base/Logging.hpp"
-// #include "chaoxi/base/Timestamp.hpp"
-
-// #include <cassert>
-// #include <chrono>
-// #include <format>
-// #include <latch>
-// #include <map>
-// #include <memory>
-// #include <print>
-// #include <thread>
-// #include <vector>
-
-// #include <unistd.h>
-
-// // Many threads, one queue.
-// class Bench
-// {
-// public:
-//     Bench(int numThreads) : latch_(numThreads)
-//     {
-//         for (int i = 0; i != numThreads; ++i)
-//         {
-//             // auto name = std::format("work thread {}", i);
-//             threads_.emplace_back([this] { this->threadFunc(); });
-//         }
-//     }
-
-//     void run(int times)
-//     {
-//         std::println("waiting for count down latch");
-
-//         latch_.wait();
-
-//         LOG_INFO << threads_.size() << " threads started";
-
-//         std::int64_t total_delay = 0;
-
-//         for (int i = 0; i != times; ++i)
-//         {
-//             auto now = chaoxi::Timestamp::clock::now();
-//             queue_.put(now);
-//             total_delay += delay_queue_.take();
-//         }
-//         std::println("Average delay: {}us",
-//                      static_cast<double>(total_delay) / times);
-//     }
-
-//     void joinAll()
-//     {
-//         for (size_t i = 0; i < threads_.size(); ++i)
-//         {
-//             queue_.put(chaoxi::Timestamp::min());
-//         }
-
-//         for (auto& thr : threads_)
-//         {
-//             if (thr.joinable())
-//             {
-//                 thr.join();
-//             }
-//         }
-//         LOG_INFO << threads_.size() << " threads stopped";
-//     }
-
-//     // void joinAll()
-
-// private:
-//     void threadFunc()
-//     {
-//         // std::println("tid={}. {} started", chaoxi::CurrentThread::tid(),
-//                     //  chaoxi::CurrentThread::name());
-//         std::map<int, int> delays;
-
-//         latch_.count_down();
-
-//         bool running = true;
-//         while (running)
-//         {
-//             auto t{queue_.take()};
-//             auto now = chaoxi::Timestamp::clock::now();
-//             if (t != chaoxi::Timestamp::min())
-//             {
-//                 int delay =
-//                     std::chrono::duration_cast<std::chrono::microseconds>(now
-//                     -
-//                                                                           t)
-//                         .count();
-
-//                 ++delays[delay];
-//                 delay_queue_.put(delay);
-//             }
-
-//             running = (t != chaoxi::Timestamp::min());
-//         }
-
-//         // std::println("tid={}. {} stopped", chaoxi::CurrentThread::tid(),
-//         //              chaoxi::CurrentThread::name());
-
-//         for (auto [delay, cnt] : delays)
-//         {
-//             // std::println("tid={}, delay={}, count={}",
-//             //              chaoxi::CurrentThread::tid(), delay, cnt);
-//         }
-//     }
-
-//     chaoxi::BlockingQueue<chaoxi::Timestamp> queue_;
-//     chaoxi::BlockingQueue<int> delay_queue_;
-//     std::latch latch_;
-//     std::vector<std::jthread> threads_;
-// };
-
-// int main(int argc, char* argv[])
-// {
-//     int threads = argc > 1 ? atoi(argv[1]) : 1;
-
-//     Bench t(threads);
-//     t.run(100000);
-//     t.joinAll();
-// }
-
 #include "chaoxi/base/BlockingQueue.hpp"
 #include "chaoxi/base/CurrentThread.hpp"
 #include "chaoxi/base/Logging.hpp"
 #include "chaoxi/base/Timestamp.hpp"
 
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
 #include <latch>
 #include <memory>
 #include <thread>
@@ -134,9 +14,9 @@
 #include <benchmark/benchmark.h>
 
 // ============================================================================
-// 1. 延迟测试 (Latency Test - Ping-Pong)
+// 1. 往返延迟测试
 // 模拟真实场景下一个线程发送任务，另一个线程处理后返回结果的极限往返时间。
-// 使用 Fixture 以避免在每次迭代中重复创建线程。
+// 使用测试夹具，避免每次迭代都重复创建线程。
 // ============================================================================
 class PingPongFixture : public benchmark::Fixture
 {
@@ -155,7 +35,7 @@ public:
                     int v = to_worker.take();
                     if (v == -1)
                     {
-                        break;  // 毒药丸 (Poison pill) 退出机制
+                        break;  // 通过毒药丸安全退出。
                     }
                     from_worker.put(v);
                 }
@@ -185,8 +65,8 @@ BENCHMARK_F(PingPongFixture, Latency_PingPong)(benchmark::State& state)
 }
 
 // ============================================================================
-// 2. 吞吐量与竞争测试 (Throughput & Contention Test)
-// 测试在多生产者 (Producers) 和多消费者 (Consumers) 争抢同一队列时的性能。
+// 2. 吞吐量与竞争测试
+// 测试多生产者和多消费者争用同一队列时的性能。
 // 参数 0: 生产者数量 | 参数 1: 消费者数量
 // ============================================================================
 static void BM_Queue_Throughput(benchmark::State& state)
@@ -195,7 +75,7 @@ static void BM_Queue_Throughput(benchmark::State& state)
     int num_consumers = state.range(1);
 
     // 每次迭代中每个生产者发送的数量。
-    // 不要设得太大，因为 Google Benchmark 本身会跑非常多次迭代。
+    // 不宜设置过大，因为基准框架本身会执行很多轮迭代。
     const int items_per_producer = 10000;
 
     for (auto _ : state)
@@ -205,6 +85,7 @@ static void BM_Queue_Throughput(benchmark::State& state)
 
         chaoxi::BlockingQueue<int> q;
         std::latch start_latch(num_producers + num_consumers + 1);
+        std::latch consumed_latch(num_producers * items_per_producer);
 
         std::vector<std::jthread> producers;
         for (int i = 0; i < num_producers; ++i)
@@ -235,6 +116,7 @@ static void BM_Queue_Throughput(benchmark::State& state)
                             break;  // 毒药丸退出机制
                         }
                         benchmark::DoNotOptimize(v);
+                        consumed_latch.count_down();
                     }
                 });
         }
@@ -252,14 +134,19 @@ static void BM_Queue_Throughput(benchmark::State& state)
             }
         }
 
+        // 吞吐计时必须覆盖最后一条业务消息被消费者取走，而不仅是生产者完成。
+        consumed_latch.wait();
+
+        // 停机协议和线程销毁不属于队列业务吞吐，移出计时区间。
+        state.PauseTiming();
+
         // 2. 生产者发完后，向消费者发送毒药丸让它们安全退出
         for (int i = 0; i < num_consumers; ++i)
         {
             q.put(-1);
         }
 
-        // 3. 暂停计时，等待消费者线程安全销毁
-        state.PauseTiming();
+        // 3. 等待消费者线程安全销毁
         for (auto& t : consumers)
         {
             if (t.joinable())
@@ -270,23 +157,144 @@ static void BM_Queue_Throughput(benchmark::State& state)
         state.ResumeTiming();
     }
 
-    // 统计每秒处理的消息总数 (Items/s)
+    // 统计每秒处理的消息总数。
     state.SetItemsProcessed(state.iterations() * num_producers *
                             items_per_producer);
 }
 
 // 注册不同的线程比例进行全面测试
 BENCHMARK(BM_Queue_Throughput)
-    ->Args({1, 1})    // SPSC: 1个生产者, 1个消费者 (基准吞吐量)
-    ->Args({4, 1})    // MPSC: 4个生产者, 1个消费者 (写入竞争)
-    ->Args({1, 4})    // SPMC: 1个生产者, 4个消费者 (读取竞争)
-    ->Args({4, 4})    // MPMC: 4个生产者, 4个消费者 (全面竞争)
-    ->Args({8, 8})    // 高负载: 8个生产者, 8个消费者
-    ->UseRealTime();  // 强制使用墙上时钟(Real Time)衡量多线程性能
+    ->Args({1, 1})    // 单生产者、单消费者：基准吞吐量。
+    ->Args({4, 1})    // 多生产者、单消费者：写入竞争。
+    ->Args({1, 4})    // 单生产者、多消费者：读取竞争。
+    ->Args({4, 4})    // 多生产者、多消费者：全面竞争。
+    ->Args({8, 8})    // 高负载：8 个生产者和 8 个消费者。
+    ->UseRealTime();  // 多线程性能必须使用墙钟时间衡量。
 
 // ============================================================================
-// 3. 烫手山芋测试 (Hot Potato / Ring Topology Test)
-// 测试极端上下文切换开销、条件变量唤醒延迟以及 CPU Cache 一致性开销。
+// 3. 逐消息排队延迟分布
+// ============================================================================
+struct TimedItem
+{
+    std::chrono::steady_clock::time_point enqueuedAt;
+    bool stop{};
+};
+
+[[nodiscard]] double percentile(const std::vector<std::int64_t>& sorted,
+                                double quantile)
+{
+    const auto rank = quantile * static_cast<double>(sorted.size() - 1);
+    const auto lower = static_cast<std::size_t>(rank);
+    const auto upper = std::min(lower + 1, sorted.size() - 1);
+    const auto fraction = rank - static_cast<double>(lower);
+    return static_cast<double>(sorted[lower]) +
+           static_cast<double>(sorted[upper] - sorted[lower]) * fraction;
+}
+
+static void BM_Queue_LatencyDistribution(benchmark::State& state)
+{
+    const auto producerCount = static_cast<std::size_t>(state.range(0));
+    const auto consumerCount = static_cast<std::size_t>(state.range(1));
+    constexpr std::size_t kSamplesPerProducer = 25'000;
+    const auto totalSamples = producerCount * kSamplesPerProducer;
+
+    for (auto _ : state)
+    {
+        chaoxi::BlockingQueue<TimedItem> queue;
+        std::latch ready{
+            static_cast<std::ptrdiff_t>(producerCount + consumerCount)};
+        std::latch start{1};
+        std::vector<std::vector<std::int64_t>> samples(consumerCount);
+        std::vector<std::jthread> consumers;
+        std::vector<std::jthread> producers;
+        consumers.reserve(consumerCount);
+        producers.reserve(producerCount);
+
+        for (std::size_t consumer = 0; consumer < consumerCount; ++consumer)
+        {
+            samples[consumer].reserve(totalSamples / consumerCount + 1);
+            consumers.emplace_back(
+                [&, consumer]
+                {
+                    ready.count_down();
+                    start.wait();
+                    while (true)
+                    {
+                        auto item = queue.take();
+                        if (item.stop)
+                        {
+                            break;
+                        }
+                        const auto latency =
+                            std::chrono::steady_clock::now() - item.enqueuedAt;
+                        samples[consumer].push_back(
+                            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                latency)
+                                .count());
+                    }
+                });
+        }
+        for (std::size_t producer = 0; producer < producerCount; ++producer)
+        {
+            producers.emplace_back(
+                [&]
+                {
+                    ready.count_down();
+                    start.wait();
+                    for (std::size_t sample = 0; sample < kSamplesPerProducer;
+                         ++sample)
+                    {
+                        queue.put(
+                            {.enqueuedAt = std::chrono::steady_clock::now()});
+                    }
+                });
+        }
+
+        ready.wait();
+        start.count_down();
+        producers.clear();
+        for (std::size_t consumer = 0; consumer < consumerCount; ++consumer)
+        {
+            queue.put({.stop = true});
+        }
+        consumers.clear();
+
+        std::vector<std::int64_t> merged;
+        merged.reserve(totalSamples);
+        for (auto& consumerSamples : samples)
+        {
+            merged.insert(merged.end(), consumerSamples.begin(),
+                          consumerSamples.end());
+        }
+        if (merged.size() != totalSamples)
+        {
+            state.SkipWithError("延迟采样器丢失了消息");
+            break;
+        }
+        std::ranges::sort(merged);
+        state.counters["latency_p50_ns"] = percentile(merged, 0.50);
+        state.counters["latency_p90_ns"] = percentile(merged, 0.90);
+        state.counters["latency_p99_ns"] = percentile(merged, 0.99);
+        state.counters["latency_p99_9_ns"] = percentile(merged, 0.999);
+        state.counters["latency_max_ns"] = static_cast<double>(merged.back());
+        state.counters["latency_samples"] = static_cast<double>(merged.size());
+    }
+
+    state.SetItemsProcessed(
+        static_cast<std::int64_t>(state.iterations() * totalSamples));
+}
+
+BENCHMARK(BM_Queue_LatencyDistribution)
+    ->ArgsProduct({
+        {1, 4},
+        {1, 4}
+})
+    ->Iterations(1)
+    ->UseRealTime();
+
+// ============================================================================
+// 4. 环形传递测试
+// 测试极端上下文切换、条件变量唤醒和 CPU 缓存一致性开销。
 // 参数 0: 环中的线程数量
 // ============================================================================
 static void BM_Queue_HotPotato(benchmark::State& state)
@@ -294,10 +302,10 @@ static void BM_Queue_HotPotato(benchmark::State& state)
     int num_threads = state.range(0);
 
     // 每一轮传递的总次数（山芋被丢来丢去的次数）
-    // 设为固定值，以便计算单次传递(hop)的平均耗时
+    // 设为固定值，以便计算单次传递的平均耗时。
     const int hops = 100000;
 
-    // 初始化 N 个队列和 1 个完成信号队列
+    // 初始化 N 个工作队列和一个完成信号队列。
     std::vector<std::shared_ptr<chaoxi::BlockingQueue<int>>> queues;
     for (int i = 0; i < num_threads; ++i)
     {
@@ -345,7 +353,7 @@ static void BM_Queue_HotPotato(benchmark::State& state)
     // 等待所有工作线程就绪，确保不在测试计时期间发生线程创建开销
     start_latch.arrive_and_wait();
 
-    // === 开始 Google Benchmark 核心循环 ===
+    // === 开始计时框架的核心循环 ===
     for (auto _ : state)
     {
         // 扔入山芋
@@ -370,15 +378,14 @@ static void BM_Queue_HotPotato(benchmark::State& state)
         }
     }
 
-    // 统计：框架会自动算出总耗时，这里我们告诉它做了多少次 Context Switch (Hops)
-    // 这样控制台会输出一个准确的 Items/s（每秒完成的上下文切换次数）
+    // 告诉框架实际完成的传递次数，使其输出每秒传递次数。
     state.SetItemsProcessed(state.iterations() * hops);
 }
 
-// 注册 Hot Potato 测试：测试 2、4、8、16 个线程组成环的表现
+// 测试由 2、4、8、16 个线程组成的环形拓扑。
 BENCHMARK(BM_Queue_HotPotato)->Arg(2)->Arg(4)->Arg(8)->Arg(16)->UseRealTime();
 
 // ============================================================================
-// Google Benchmark 主函数入口
+// 基准测试主函数入口。
 // ============================================================================
 BENCHMARK_MAIN();

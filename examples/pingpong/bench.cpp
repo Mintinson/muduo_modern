@@ -20,6 +20,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <future>
 #include <getopt.h>
 #include <iostream>
 #include <memory>
@@ -60,7 +61,7 @@ void runThroughput(int threads, int sessions, int blockSize, int durationSec) {
     ThroughputStats stats;
 
     // ---- server ----
-    std::jthread serverThread([]() {
+    std::jthread serverThread([threads]() {
         EventLoop srvLoop;
         InetAddress listenAddr(9988);
         TcpServer server(&srvLoop, listenAddr, "bench_server");
@@ -71,7 +72,7 @@ void runThroughput(int threads, int sessions, int blockSize, int durationSec) {
                                      Buffer& buf, Timestamp) {
             conn->send(std::move(buf));
         });
-        server.setThreadNum(4);
+        server.setThreadNum(threads);
         server.start();
         srvLoop.loop();
     });
@@ -258,62 +259,50 @@ void runLatency(int numPipes, int numActive, int numWrites) {
 
 void runConnRate(int threads, int sessions) {
     setLoggerWarn();
-    (void)threads;  // clients run in a single thread for simplicity
-
     std::atomic<int64_t> accepted{0};
-    EventLoop srvLoop;
-    InetAddress listenAddr(9989);
-    TcpServer server(&srvLoop, listenAddr, "cr_server");
-    server.setConnectionCallback([&](const TcpConnectionPtr& conn) {
-        if (conn->connected()) accepted++;
+    std::promise<void> listening;
+    auto ready = listening.get_future();
+    std::jthread serverThread([&] {
+        EventLoop serverLoop;
+        TcpServer server(&serverLoop, InetAddress(9989), "cr_server");
+        server.setConnectionCallback([&](const TcpConnectionPtr& conn) {
+            if (conn->connected()) accepted++;
+        });
+        server.setThreadNum(threads);
+        server.start();
+        listening.set_value();
+        serverLoop.loop();
     });
-    server.setThreadNum(4);
-    server.start();
-    std::jthread srvThread([&] { srvLoop.loop(); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    ready.wait();
 
-    // clients run in dedicated thread
-    std::jthread clientThread([&]() {
-        EventLoop cliLoop;
-        InetAddress serverAddr("127.0.0.1", 9989);
-        std::vector<std::unique_ptr<TcpClient>> clients;
-        clients.reserve(sessions);
-        std::atomic<int64_t> connected{0};
-        auto t0 = nowSec();
+    EventLoop clientLoop;
+    InetAddress serverAddr("127.0.0.1", 9989);
+    std::vector<std::unique_ptr<TcpClient>> clients;
+    clients.reserve(sessions);
+    std::atomic<int64_t> connected{0};
+    const auto t0 = nowSec();
 
-        for (int i = 0; i < sessions; ++i) {
-            auto client = std::make_unique<TcpClient>(&cliLoop, serverAddr,
-                                                      "cr" + std::to_string(i));
-            client->setConnectionCallback([&](const TcpConnectionPtr& conn) {
-                if (conn->connected()) {
-                    connected++;
-                    conn->shutdown();
-                }
-            });
-            client->connect();
-            clients.push_back(std::move(client));
-        }
+    for (int i = 0; i < sessions; ++i) {
+        auto client = std::make_unique<TcpClient>(&clientLoop, serverAddr,
+                                                  "cr" + std::to_string(i));
+        client->setConnectionCallback([&](const TcpConnectionPtr& conn) {
+            if (conn->connected()) {
+                if (++connected == sessions) clientLoop.quit();
+                conn->shutdown();
+            }
+        });
+        client->connect();
+        clients.push_back(std::move(client));
+    }
+    clientLoop.runAfter(10.0, [&] { clientLoop.quit(); });
+    clientLoop.loop();
 
-        auto deadline = t0 + 10.0;
-        while (connected < sessions && nowSec() < deadline) {
-            cliLoop.runAfter(0.05, [&]() { cliLoop.quit(); });
-            cliLoop.loop();
-        }
-
-        auto t1 = nowSec();
-        double elapsed = t1 - t0;
-        double rate = connected / elapsed;
-
-        std::println("---connrate_result---");
-        std::println("mode=connrate threads={} sessions={}", threads, sessions);
-        std::println("connected={} accepted={} elapsed={:.3f}s conn_per_sec={:.1f}",
-                     connected.load(), accepted.load(), elapsed, rate);
-
-        for (auto& c : clients) c->stop();
-        clients.clear();
-    });
-
-    clientThread.join();
+    const double elapsed = nowSec() - t0;
+    const double rate = connected / elapsed;
+    std::println("---connrate_result---");
+    std::println("mode=connrate threads={} sessions={}", threads, sessions);
+    std::println("connected={} accepted={} elapsed={:.3f}s conn_per_sec={:.1f}",
+                 connected.load(), accepted.load(), elapsed, rate);
 
     fflush(stdout);
     _exit(0);  // skip clean destructors to avoid cross-thread cleanup issues
@@ -362,8 +351,7 @@ int main(int argc, char* argv[]) {
     } else if (mode == "latency") {
         runLatency(pipes, active, writes);
     } else if (mode == "connrate") {
-        std::println("connrate mode: under construction (cross-thread cleanup TBD)");
-        // runConnRate(threads, sessions);
+        runConnRate(threads, sessions);
     } else {
         std::println("Unknown mode: {}", mode);
         usage(argv[0]);

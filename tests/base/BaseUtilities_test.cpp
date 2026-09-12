@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #if !defined(_WIN32)
-#include <unistd.h>
+    #include <unistd.h>
 #endif
 
 namespace
@@ -178,7 +178,7 @@ TEST_F(FileUtilTest, AppendFilePersistsBinarySafeContent)
         file.append(first);
         file.append("tail");
         EXPECT_EQ(file.writtenBytes(), 11U);
-        file.flush();
+        EXPECT_TRUE(file.sync());
     }
 
     const auto result = chaoxi::file_util::readSmallFile(path_);

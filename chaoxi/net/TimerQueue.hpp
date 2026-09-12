@@ -5,6 +5,7 @@
 #include "chaoxi/net/Channel.hpp"
 
 #include <set>
+#include <unordered_set>
 #include <utility>
 
 namespace chaoxi::net
@@ -84,7 +85,20 @@ private:
 
     // ActiveTimer 只是用于快速查找和校验的非拥有视图，用裸指针即可
     using ActiveTimer = std::pair<Timer*, int64_t>;
+
     using ActiveTimerSet = std::set<ActiveTimer>;
+    // struct ActiveTimerHash
+    // {
+    //     std::size_t operator()(const ActiveTimer& p) const noexcept
+    //     {
+    //         // 常见的哈希组合算法 (类似 boost::hash_combine)
+    //         auto h1 = std::hash<Timer*>{}(p.first);
+    //         auto h2 = std::hash<int64_t>{}(p.second);
+    //         return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+    //     }
+    // };
+
+    // using ActiveTimerSet = std::unordered_set<ActiveTimer, ActiveTimerHash>;
 
     void addTimerInLoop(std::unique_ptr<Timer> timer);
     void cancelInLoop(TimerId timerId);

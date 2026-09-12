@@ -7,12 +7,13 @@
 #include <string_view>
 
 #ifdef _WIN32
-#include <share.h>
+    #include <io.h>
+    #include <share.h>
 #endif
 #ifndef _WIN32
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
+    #include <fcntl.h>
+    #include <sys/stat.h>
+    #include <unistd.h>
 #endif
 
 namespace chaoxi::file_util
@@ -99,8 +100,10 @@ private:
     const auto writeTime = std::filesystem::last_write_time(filename, ec);
     if (!ec)
     {
-        result.meta.modifyTime = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-            writeTime - decltype(writeTime)::clock::now() + std::chrono::system_clock::now());
+        result.meta.modifyTime =
+            std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                writeTime - decltype(writeTime)::clock::now() +
+                std::chrono::system_clock::now());
         result.meta.createTime = result.meta.modifyTime;
     }
     const auto toRead = std::min(maxSize, result.meta.fileSize);
@@ -137,8 +140,8 @@ private:
         // 常规文件：已知大小，直接一次性分配并读取
         size_t toRead = std::min(maxSize, result.meta.fileSize);
 
-        // C++23 resize_and_overwrite: 直接将底层未初始化的内存交给 read
-        // 填充，消除所有临时 buffer 和 append 拷贝！
+        // C++23 resize_and_overwrite：让 read 直接填充底层未初始化内存，
+        // 消除临时缓冲和追加拷贝。
         result.content.resize_and_overwrite(
             toRead,
             [&](char* buf, size_t n)
@@ -154,7 +157,7 @@ private:
                     }
                     else if (bytes == 0)
                     {
-                        break;  // EOF
+                        break;  // 已到文件末尾
                     }
                     else
                     {
@@ -209,7 +212,7 @@ AppendFile::AppendFile(std::string_view filename)
 #ifdef _WIN32
     : fp_(nullptr)
 #else
-    : fp_(::fopen(filename.data(), "ae"))  // 'e' for O_CLOEXEC
+    : fp_(::fopen(filename.data(), "ae"))  // e 表示启用 O_CLOEXEC
 #endif
 {
 #ifdef _WIN32
@@ -217,7 +220,7 @@ AppendFile::AppendFile(std::string_view filename)
 #endif
     assert(fp_);
     (void)::setvbuf(fp_, buffer_.data(), _IOFBF, sizeof buffer_);
-    // posix_fadvise POSIX_FADV_DONTNEED ?
+    // 可按实际工作负载评估是否需要 POSIX_FADV_DONTNEED。
 }
 
 AppendFile::~AppendFile()
@@ -256,10 +259,22 @@ void AppendFile::flush()
     (void)::fflush(fp_);
 }
 
+bool AppendFile::sync()
+{
+    if (::fflush(fp_) != 0)
+    {
+        return false;
+    }
+#ifdef _WIN32
+    return ::_commit(::_fileno(fp_)) == 0;
+#else
+    return ::fsync(::fileno(fp_)) == 0;
+#endif
+}
+
 size_t AppendFile::write(std::string_view logline)
 {
-    // #undef fwrite_unlocked
-    // thread-unsafe
+    // 无锁写入依赖外部保证线程安全。
 #ifdef _WIN32
     return ::fwrite(logline.data(), 1, logline.size(), fp_);
 #else

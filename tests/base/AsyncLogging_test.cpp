@@ -81,7 +81,7 @@ protected:
 };
 
 // ============================================================================
-// 测试1: 构造和析构（不调用 start）
+// 测试 1：构造和析构（不调用 start）。
 // ============================================================================
 
 TEST_F(AsyncLoggingTest, ConstructAndDestruct)
@@ -93,12 +93,12 @@ TEST_F(AsyncLoggingTest, ConstructAndDestruct)
 }
 
 // ============================================================================
-// 测试2: 单线程写 → stop → 数据正确落盘
+// 测试 2：单线程写入后停止，数据应正确落盘。
 // ============================================================================
 
 TEST_F(AsyncLoggingTest, SingleThreadWrite)
 {
-    // flushInterval=1s: 后端每1秒醒来处理一次
+    // 刷新间隔为 1 秒：后端每秒醒来处理一次。
     AsyncLogging log(basename_, 500 * 1000, 1);
     log.start();
 
@@ -107,7 +107,7 @@ TEST_F(AsyncLoggingTest, SingleThreadWrite)
         log.append("line " + std::to_string(i) + "\n");
     }
 
-    // 等待后端线程被 flushInterval 唤醒并处理数据
+    // 等待后端线程被定期刷新机制唤醒并处理数据。
     std::this_thread::sleep_for(std::chrono::seconds(2));
     log.stop();
 
@@ -117,8 +117,25 @@ TEST_F(AsyncLoggingTest, SingleThreadWrite)
     EXPECT_GE(countLogFiles(), 1);
 }
 
+TEST_F(AsyncLoggingTest, StopDrainsCurrentBufferWithoutWaitingForFlushInterval)
+{
+    AsyncLogging log(basename_, 500 * 1000, 60);
+    log.start();
+    log.append("tail that must survive stop\n");
+    log.stop();
+
+    EXPECT_EQ(readAllLogFiles(), "tail that must survive stop\n");
+    const auto statistics = log.statistics();
+    EXPECT_EQ(statistics.acceptedMessages, 1);
+    EXPECT_EQ(statistics.acceptedBytes, 28);
+    EXPECT_EQ(statistics.writtenMessages, statistics.acceptedMessages);
+    EXPECT_EQ(statistics.writtenBytes, statistics.acceptedBytes);
+    EXPECT_EQ(statistics.droppedMessages, 0);
+    EXPECT_EQ(statistics.droppedBytes, 0);
+}
+
 // ============================================================================
-// 测试3: 大量数据, 验证 buffer 队列 + 积压不 crash
+// 测试 3：大量数据，验证缓冲队列积压时不会崩溃。
 // ============================================================================
 
 TEST_F(AsyncLoggingTest, LargeVolumeWrite)
@@ -164,7 +181,7 @@ TEST_F(AsyncLoggingTest, MultiThreadWrite)
                 }
             });
     }
-    threads.clear();  // jthread 析构自动 join
+    threads.clear();  // jthread 析构时会自动等待线程退出。
 
     std::this_thread::sleep_for(std::chrono::seconds(2));
     log.stop();
@@ -178,7 +195,7 @@ TEST_F(AsyncLoggingTest, MultiThreadWrite)
 }
 
 // ============================================================================
-// 测试5: stop 后 append 不 crash
+// 测试 5：停止后继续追加不会崩溃，并会计入丢弃统计。
 // ============================================================================
 
 TEST_F(AsyncLoggingTest, StopThenAppendNoCrash)
@@ -186,19 +203,39 @@ TEST_F(AsyncLoggingTest, StopThenAppendNoCrash)
     AsyncLogging log(basename_, 500 * 1000, 1);
     log.start();
     log.append("before stop\n");
-    std::this_thread::sleep_for(std::chrono::seconds(2));
     log.stop();
-    log.append("after stop\n");  // 不应 crash
-    SUCCEED();
+    log.append("after stop\n");
+
+    const auto statistics = log.statistics();
+    EXPECT_EQ(statistics.acceptedMessages, 1);
+    EXPECT_EQ(statistics.writtenMessages, 1);
+    EXPECT_EQ(statistics.droppedMessages, 1);
+    EXPECT_EQ(statistics.droppedBytes, std::string_view("after stop\n").size());
+}
+
+TEST_F(AsyncLoggingTest, OversizeMessageIsCountedAsDropped)
+{
+    AsyncLogging log(basename_, 500 * 1000, 60);
+    log.start();
+    const std::string message(AsyncLogging::kDefaultBufferSize, 'x');
+    log.append(message);
+    log.stop();
+
+    const auto statistics = log.statistics();
+    EXPECT_EQ(statistics.acceptedMessages, 0);
+    EXPECT_EQ(statistics.writtenMessages, 0);
+    EXPECT_EQ(statistics.droppedMessages, 1);
+    EXPECT_EQ(statistics.droppedBytes, message.size());
+    EXPECT_TRUE(readAllLogFiles().empty());
 }
 
 // ============================================================================
-// 测试6: 小 rollSize → 触发日志滚动
+// 测试 6：使用较小滚动阈值触发日志文件滚动。
 // ============================================================================
 
 TEST_F(AsyncLoggingTest, LogFileRolling)
 {
-    // rollSize=100 字节, 每条日志 >200 字节, 在 LogFile 层面触发多次滚动
+    // 滚动阈值为 100 字节，每条日志超过 200 字节，会触发多次滚动。
     AsyncLogging log(basename_, 100, 1);
     log.start();
 
@@ -216,7 +253,7 @@ TEST_F(AsyncLoggingTest, LogFileRolling)
 }
 
 // ============================================================================
-// 测试7: 空消息不 crash
+// 测试 7：追加空消息不会崩溃。
 // ============================================================================
 
 TEST_F(AsyncLoggingTest, EmptyAppend)
@@ -231,7 +268,7 @@ TEST_F(AsyncLoggingTest, EmptyAppend)
 }
 
 // ============================================================================
-// 测试8: flushInterval 触发定期刷盘
+// 测试 8：刷新间隔能够触发定期刷盘。
 // ============================================================================
 
 TEST_F(AsyncLoggingTest, FlushIntervalTriggersFlush)
@@ -241,10 +278,10 @@ TEST_F(AsyncLoggingTest, FlushIntervalTriggersFlush)
 
     log.append("important message\n");
 
-    // 等 2 秒让 flushInterval 超时触发
+    // 等待 2 秒，使刷新间隔超时。
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
-    // 不 stop, 直接读文件——flush 应该已把数据写入
+    // 不停止日志线程而直接读文件；定期刷新应已把数据写入文件。
     std::string content = readAllLogFiles();
     EXPECT_NE(content.find("important message"), std::string::npos);
 
