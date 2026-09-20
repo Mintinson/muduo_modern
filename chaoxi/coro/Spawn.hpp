@@ -1,7 +1,7 @@
 #pragma once
 
-#include "chaoxi/net/EventLoop.hpp"
 #include "chaoxi/coro/Task.hpp"
+#include "chaoxi/net/EventLoop.hpp"
 
 #include <coroutine>
 #include <exception>

@@ -1,8 +1,7 @@
-#include "chaoxi/net/EventLoop.hpp"
-#include "chaoxi/net/SocketOps.hpp"
 #include "chaoxi/coro/AsyncFd.hpp"
 #include "chaoxi/coro/Spawn.hpp"
-#include "ConnectedSockets.hpp"
+#include "chaoxi/net/EventLoop.hpp"
+#include "chaoxi/net/SocketOps.hpp"
 
 #include <array>
 #include <cerrno>
@@ -14,12 +13,14 @@
 
 #include <gtest/gtest.h>
 
+#include "ConnectedSockets.hpp"
+
 namespace
 {
 
 chaoxi::coro::Task<void> readMessage(chaoxi::net::EventLoop& loop,
-                                   chaoxi::coro::AsyncFd fd,
-                                   std::string& result)
+                                     chaoxi::coro::AsyncFd fd,
+                                     std::string& result)
 {
     std::array<char, 5> buffer{};
     co_await fd.readExactly(std::as_writable_bytes(std::span{buffer}));
@@ -28,8 +29,8 @@ chaoxi::coro::Task<void> readMessage(chaoxi::net::EventLoop& loop,
 }
 
 chaoxi::coro::Task<void> waitForCancellation(chaoxi::net::EventLoop& loop,
-                                           chaoxi::coro::AsyncFd& fd,
-                                           bool& cancelled)
+                                             chaoxi::coro::AsyncFd& fd,
+                                             bool& cancelled)
 {
     std::array<std::byte, 8> buffer{};
     try
@@ -45,8 +46,8 @@ chaoxi::coro::Task<void> waitForCancellation(chaoxi::net::EventLoop& loop,
 }
 
 chaoxi::coro::Task<void> readEof(chaoxi::net::EventLoop& loop,
-                               chaoxi::coro::AsyncFd fd,
-                               std::size_t& bytes)
+                                 chaoxi::coro::AsyncFd fd,
+                                 std::size_t& bytes)
 {
     std::array<std::byte, 8> buffer{};
     bytes = co_await fd.readSome(buffer);
@@ -54,9 +55,9 @@ chaoxi::coro::Task<void> readEof(chaoxi::net::EventLoop& loop,
 }
 
 chaoxi::coro::Task<void> writePayload(chaoxi::net::EventLoop& loop,
-                                    chaoxi::coro::AsyncFd fd,
-                                    std::span<const std::byte> payload,
-                                    bool& completed)
+                                      chaoxi::coro::AsyncFd fd,
+                                      std::span<const std::byte> payload,
+                                      bool& completed)
 {
     co_await fd.writeAll(payload);
     completed = true;
@@ -65,8 +66,8 @@ chaoxi::coro::Task<void> writePayload(chaoxi::net::EventLoop& loop,
 }
 
 chaoxi::coro::Task<void> firstReader(chaoxi::net::EventLoop& loop,
-                                   chaoxi::coro::AsyncFd& fd,
-                                   bool& completed)
+                                     chaoxi::coro::AsyncFd& fd,
+                                     bool& completed)
 {
     std::array<std::byte, 1> buffer{};
     (void)co_await fd.readSome(buffer);
@@ -75,8 +76,8 @@ chaoxi::coro::Task<void> firstReader(chaoxi::net::EventLoop& loop,
 }
 
 chaoxi::coro::Task<void> duplicateReader(chaoxi::coro::AsyncFd& fd,
-                                       chaoxi::net::SocketHandle peerFd,
-                                       bool& rejected)
+                                         chaoxi::net::SocketHandle peerFd,
+                                         bool& rejected)
 {
     std::array<std::byte, 1> buffer{};
     try
@@ -122,8 +123,8 @@ TEST(CoroAsyncFdTest, ReadsAfterReadinessNotification)
 
     chaoxi::coro::spawn(
         loop,
-        readMessage(loop,
-                    chaoxi::coro::AsyncFd{loop, sockets.releaseFirst()}, result));
+        readMessage(loop, chaoxi::coro::AsyncFd{loop, sockets.releaseFirst()},
+                    result));
     loop.loop();
 
     EXPECT_FALSE(timedOut);
@@ -153,8 +154,8 @@ TEST(CoroAsyncFdTest, ReportsPeerEof)
     chaoxi::net::EventLoop loop;
     std::size_t bytes = 1;
     chaoxi::coro::spawn(
-        loop,
-        readEof(loop, chaoxi::coro::AsyncFd{loop, sockets.releaseFirst()}, bytes));
+        loop, readEof(loop, chaoxi::coro::AsyncFd{loop, sockets.releaseFirst()},
+                      bytes));
     loop.loop();
 
     EXPECT_EQ(bytes, 0U);
@@ -164,8 +165,8 @@ TEST(CoroAsyncFdTest, WriteAllHandlesBackpressure)
 {
     chaoxi::coro::test::ConnectedSockets sockets;
     const int sendBufferSize = 4'096;
-    ASSERT_EQ(chaoxi::net::sockets::setSocketOption(
-                  sockets.first(), SOL_SOCKET, SO_SNDBUF, sendBufferSize),
+    ASSERT_EQ(chaoxi::net::sockets::setSocketOption(sockets.first(), SOL_SOCKET,
+                                                    SO_SNDBUF, sendBufferSize),
               0);
 
     const std::string payload(512 * 1'024, 'z');
@@ -177,9 +178,8 @@ TEST(CoroAsyncFdTest, WriteAllHandlesBackpressure)
             std::array<char, 8'192> buffer{};
             while (received.size() < payload.size())
             {
-                const chaoxi::net::SignedSize count =
-                    chaoxi::net::sockets::read(
-                        sockets.second(), buffer.data(), buffer.size());
+                const chaoxi::net::SignedSize count = chaoxi::net::sockets::read(
+                    sockets.second(), buffer.data(), buffer.size());
                 if (count > 0)
                 {
                     received.append(buffer.data(),

@@ -157,6 +157,8 @@ FetchContent_Declare(
     FIND_PACKAGE_ARGS CONFIG
     GIT_SUBMODULES ""
 )
+FetchContent_MakeAvailable(chaoxi)
+
 target_link_libraries(your_target PUBLIC chaoxi::chaoxi)
 ```
 
