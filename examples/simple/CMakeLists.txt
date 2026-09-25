@@ -52,3 +52,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(epoll_demo s05_epoll/epoll_demo.cpp)
     target_link_libraries(epoll_demo PRIVATE chaoxi::chaoxi)
 endif()
+
+# 开启协程时才引入协程版等价示例。
+if(CHAOXI_BUILD_CORO)
+    add_subdirectory(coro_example)
+endif()
