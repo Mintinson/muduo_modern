@@ -46,27 +46,31 @@ struct Throughput
     std::int64_t transferred{};
 };
 
-chaoxi::coro::Task<void> chargenConnection(chaoxi::net::EventLoop& loop,
-                                           chaoxi::coro::AsyncSocket socket,
-                                           chaoxi::net::InetAddress peer,
-                                           Throughput& throughput
-
-)
+chaoxi::coro::Task<void> sendChargen(chaoxi::net::EventLoop& loop,
+                                    chaoxi::coro::AsyncSocket socket,
+                                    Throughput& throughput)
 {
     socket.setTcpNoDelay(true);
     const std::string message = makeChargenMessage();
 
-    // transferred = 0;
+    while (true)
+    {
+        co_await socket.writeAll(coro_example::asBytes(message));
+        throughput.transferred += static_cast<std::int64_t>(message.size());
+
+        // 让出执行权：既等价于“写完成后再次发送”，也避免独占 loop。
+        co_await chaoxi::coro::yield(loop);
+    }
+}
+
+chaoxi::coro::Task<void> chargenConnection(chaoxi::net::EventLoop& loop,
+                                           chaoxi::coro::AsyncSocket socket,
+                                           chaoxi::net::InetAddress peer,
+                                           Throughput& throughput)
+{
     try
     {
-        while (true)
-        {
-            co_await socket.writeAll(coro_example::asBytes(message));
-            throughput.transferred += static_cast<std::int64_t>(message.size());
-
-            // 让出执行权：既等价于“写完成后再次发送”，也避免独占 loop。
-            co_await chaoxi::coro::yield(loop);
-        }
+        co_await sendChargen(loop, std::move(socket), throughput);
     }
     catch (const std::system_error& error)
     {
@@ -74,9 +78,6 @@ chaoxi::coro::Task<void> chargenConnection(chaoxi::net::EventLoop& loop,
         LOG_INFO << "ChargenServer - " << peer.toIpPort()
                  << " disconnected: " << error.what();
     }
-
-    // LOG_INFO << "ChargenServer - " << peer.toIpPort() << " transferred "
-    //          << transferred << " bytes";
 }
 
 chaoxi::coro::Task<void> printThroughput(chaoxi::net::EventLoop& loop,
